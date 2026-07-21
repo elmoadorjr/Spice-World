@@ -1,0 +1,1469 @@
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Cinzel:wght@500;700&display=swap');
+
+  :root{
+    --parchment: #E8D9B5;
+    --parchment-light: #F1E6C8;
+    --parchment-dark: #D9C599;
+    --sea: #5C7E8C;
+    --sea-deep: #3A5866;
+    --ink: #2B2320;
+    --sienna: #A8542E;
+    --gold: #B8873D;
+    --rust: #8B3A3A;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0; padding:0;
+    background: var(--sea-deep);
+    font-family: 'EB Garamond', serif;
+    color: var(--ink);
+    height:100%; width:100%;
+  }
+
+  /* Visible keyboard focus across every interactive element — buttons, the
+     jump-to select, tabs, and character rows all pick this up consistently. */
+  button:focus-visible,
+  select:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible{
+    outline: 2.5px solid var(--gold);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .frame{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    max-width: 1400px;
+    margin:0 auto;
+  }
+
+  .title-block{
+    text-align:center;
+    padding: 14px 10px 10px;
+    flex-shrink:0;
+  }
+  .eyebrow{
+    font-family:'Cinzel', serif;
+    letter-spacing: 0.3em;
+    font-size: 11px;
+    color: var(--parchment-dark);
+    text-transform: uppercase;
+  }
+  h1{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size: clamp(22px, 4vw, 38px);
+    color: var(--parchment);
+    margin: 4px 0 2px;
+    letter-spacing: 0.03em;
+  }
+  .subtitle{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--parchment-dark);
+  }
+
+  .map-wrap{
+    position:relative;
+    flex:1;
+    margin: 0 12px 12px;
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px var(--gold), 0 0 0 7px var(--parchment-dark), 0 20px 50px rgba(0,0,0,0.5);
+    overflow:hidden;
+  }
+
+  #map{
+    width:100%;
+    height:100%;
+    background: var(--sea);
+  }
+
+  /* Leaflet control restyle */
+  .leaflet-control-zoom a{
+    background: var(--parchment) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--ink) !important;
+  }
+  /* Fullscreen toggle — styled to match the zoom control it sits beside */
+  .leaflet-control-fullscreen a{
+    background: var(--parchment) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--ink) !important;
+    font-size: 15px !important;
+    line-height: 26px !important;
+  }
+  .leaflet-control-fullscreen a:hover{
+    background: var(--parchment-light) !important;
+  }
+  /* Leaflet's own fullscreen-mode class on the map container */
+  .map-wrap:fullscreen{
+    margin: 0;
+    border-radius: 0;
+  }
+  .map-wrap:fullscreen #map{
+    height: 100vh;
+  }
+  .leaflet-control-attribution{
+    background: rgba(232,217,181,0.85) !important;
+    font-family: 'EB Garamond', serif;
+    font-size: 10px !important;
+  }
+  .leaflet-control-scale-line{
+    background: rgba(232, 217, 181, 0.88) !important;
+    border: 1.5px solid var(--ink) !important;
+    border-top: 1.5px solid var(--ink) !important;
+    color: var(--ink) !important;
+    font-family: 'EB Garamond', serif;
+    font-size: 11px !important;
+    padding: 1px 5px !important;
+  }
+
+  /* land styling applied via GeoJSON layer options, but base fallback */
+  .leaflet-container{
+    font-family: 'EB Garamond', serif;
+  }
+
+  /* custom pin marker */
+  .legend-pin{
+    width: 13px; height:13px;
+    background: var(--rust);
+    border: 2px solid var(--parchment-light);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--ink);
+    flex-shrink: 0;
+  }
+  .capital-pin{
+    width: 16px; height:16px;
+    background: var(--gold);
+    border: 2px solid var(--parchment-light);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--ink);
+    flex-shrink: 0;
+  }
+  /* Third pin tier: notable but non-sovereign polities (e.g. Cirebon, Bone) —
+     sized and colored between a full capital and an ordinary marker. */
+  .major-pin{
+    width: 14.5px; height:14.5px;
+    background: var(--sienna);
+    border: 2px solid var(--parchment-light);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--ink);
+    flex-shrink: 0;
+  }
+  /* has-sheet: a small hollow ring inset within the dot marks locations whose
+     figures include someone with a full character sheet available; pins
+     without this stay a plain filled dot. Purely decorative, non-interactive. */
+  .legend-pin.has-sheet, .capital-pin.has-sheet, .major-pin.has-sheet{
+    background-image: radial-gradient(circle at center, var(--parchment-light) 0 22%, transparent 23%);
+  }
+
+  .map-pin-wrap{
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    pointer-events: none;
+  }
+  .map-pin-wrap .legend-pin,
+  .map-pin-wrap .capital-pin,
+  .map-pin-wrap .major-pin{
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .map-pin-label{
+    font-family: 'Cinzel', serif;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    background: rgba(232, 217, 181, 0.88);
+    padding: 1px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .map-pin-label.is-capital{
+    font-weight: 600;
+    color: var(--sienna);
+  }
+  .map-pin-label.is-major{
+    font-style: italic;
+  }
+  .map-pin-goods{
+    font-size: 11px;
+    filter: drop-shadow(0 0 1px rgba(255,255,255,0.6));
+  }
+  /* At the default zoomed-out view, only show capital labels to avoid clutter;
+     zooming in reveals every label. Toggled via a body class set in JS. */
+  body.zoom-far .map-pin-label:not(.is-capital){
+    opacity: 0;
+  }
+  /* Goods emoji are a nice-to-have detail, not core map info — hide them
+     whenever the map is zoomed out, even on capitals, so the default view
+     stays as clean as it was before they existed. */
+  body.zoom-far .map-pin-goods{
+    display: none;
+  }
+  /* ============ CHARACTER MARKERS ============
+     Small emoji badge + name label per named figure, distinct from the
+     location pins above (round emoji instead of a ringed dot) so the two
+     layers stay visually separable when both are on. */
+  .char-pin-wrap{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .char-pin-emoji{
+    font-size: 13px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4));
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  /* Override-placed markers (a character whose position was set manually
+     in `characterPositions` rather than derived from their court/domain)
+     get a soft ring — a visual cue that they're "currently here," not
+     "seated here," e.g. Angin mid-voyage between ports. */
+  .char-pin-emoji.is-override{
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4)) drop-shadow(0 0 3px rgba(184,135,61,0.9));
+  }
+  .char-pin-label{
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: var(--parchment-light, #f0e6cf);
+    background: rgba(40, 30, 20, 0.75);
+    padding: 1px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    pointer-events: auto;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  /* Hide character name labels (keep the emoji) when zoomed far out, same
+     treatment as goods emoji — avoids two label layers competing for space. */
+  body.zoom-far .char-pin-label{
+    display: none;
+  }
+
+  /* consolidated top-right panel: jump-to select + reset/timeline buttons */
+  .map-controls-panel{
+    margin-top: 8px !important;
+    margin-right: 8px !important;
+    background: var(--parchment-light);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 8px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .location-jump-select{
+    font-family: 'EB Garamond', serif;
+    font-size: 13px;
+    background: var(--parchment-light);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 5px 6px;
+    cursor: pointer;
+    max-width: 148px;
+  }
+  .location-jump-select optgroup{
+    font-family: 'Cinzel', serif;
+    font-style: normal;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--sienna);
+  }
+  .location-jump-select option{
+    font-family: 'EB Garamond', serif;
+    color: var(--ink);
+  }
+  .map-controls-btn-row{
+    display: flex;
+    gap: 6px;
+  }
+  .reset-view-btn{
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    background: var(--parchment);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 5px 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex: 1;
+  }
+  .reset-view-btn:hover, .location-jump-select:hover{
+    background: var(--parchment-dark);
+  }
+  /* Distinct color while the 1511 overlay is showing, so it's obvious the
+     map is no longer displaying the default 1500 state. */
+  .reset-view-btn.active-timeline{
+    background: var(--rust);
+    color: var(--parchment-light);
+    border-color: var(--rust);
+  }
+  .reset-view-btn.active-timeline:hover{
+    background: #7a3232;
+  }
+
+  .t-goods-links{
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--parchment-dark);
+    display:flex;
+    flex-direction:column;
+    gap: 4px;
+  }
+  .t-goods-link{
+    font-size: 12px;
+    color: var(--sienna);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .t-goods-link:hover{ color: var(--rust); }
+
+  .leaflet-popup-content-wrapper{
+    background: var(--parchment-light);
+    border: 1.5px solid var(--ink);
+    border-radius: 2px;
+    box-shadow: 3px 4px 0 rgba(0,0,0,0.35);
+  }
+  .leaflet-popup-tip{
+    background: var(--parchment-light);
+    border: 1.5px solid var(--ink);
+  }
+  .leaflet-popup-content{
+    margin: 12px 14px;
+    font-family:'EB Garamond', serif;
+  }
+  .t-region{
+    font-family:'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color: var(--sienna);
+    margin-bottom:3px;
+  }
+  .t-name{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:700;
+    font-size: 19px;
+    color: var(--ink);
+    margin-bottom:5px;
+    line-height:1.1;
+  }
+  .t-figures{
+    font-size: 13.5px;
+    line-height:1.55;
+  }
+  .t-figures b{ color: var(--sienna); }
+  .t-figures div{ margin-bottom: 3px; }
+  .t-profile{
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--parchment-dark);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .t-profile div{ margin-bottom: 5px; }
+  .t-profile div:last-child{ margin-bottom: 0; }
+  .t-profile b{ color: var(--gold); }
+  .t-importance{
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--parchment-dark);
+    font-size: 12px;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--sienna);
+  }
+
+  .legend{
+    display:flex;
+    justify-content:center;
+    gap: 24px;
+    flex-wrap:wrap;
+    padding: 0 10px 10px;
+    font-family:'EB Garamond', serif;
+    font-size: 12.5px;
+    color: var(--parchment-dark);
+    flex-shrink:0;
+  }
+  .legend-item{ display:flex; align-items:center; gap:7px; }
+  .swatch-line{ width:18px; height:2.75px; background: var(--gold); border-radius:1px; }
+  .swatch-line.dashed{
+    background: repeating-linear-gradient(90deg, var(--gold) 0 9px, transparent 9px 14px);
+  }
+  .swatch-dot{ width:11px; height:11px; border-radius:50%; background:var(--rust); border:1.5px solid var(--parchment-light); box-shadow:0 0 0 1px var(--ink); }
+  .swatch-dot.capital{ background: var(--gold); width:13px; height:13px; }
+  .swatch-dot.major{ background: var(--sienna); width:12px; height:12px; }
+  .swatch-dot.has-sheet-demo{
+    background-image: radial-gradient(circle at center, var(--parchment-light) 0 22%, transparent 23%);
+  }
+  .swatch-ring{
+    width:11px; height:11px; border-radius:50%;
+    background: var(--parchment-dark);
+    flex-shrink: 0;
+  }
+  .swatch-fill{
+    display:inline-block;
+    width:18px; height:12px;
+    background: var(--sienna);
+    opacity: 0.35;
+    border: 1.2px solid var(--sienna);
+    border-radius: 2px;
+  }
+  .swatch-river{
+    width:18px; height:2px;
+    background: repeating-linear-gradient(90deg, var(--sea) 0 2px, transparent 2px 4px);
+  }
+  .swatch-volcano{ font-size: 13px; line-height:1; }
+  .swatch-dot.settlement{
+    background: var(--parchment-dark);
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    transform: rotate(45deg);
+  }
+  .swatch-wind{ font-size: 13px; line-height:1; }
+
+  /* ============ SETTLEMENT / TOWN PINS (non-ruled places) ============ */
+  .settlement-pin{
+    width: 8px; height:8px;
+    background: var(--parchment-dark);
+    border: 1.5px solid var(--ink);
+    transform: rotate(45deg);
+    flex-shrink: 0;
+  }
+  .settlement-pin.type-port{ background: var(--sea); }
+  .settlement-pin.type-pilgrimage{ background: var(--gold); }
+  .settlement-label{
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 9.5px;
+    color: var(--parchment-light);
+    background: rgba(58,88,102,0.75);
+    padding: 1px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  body.zoom-far .settlement-label{ opacity: 0.55; }
+
+  /* ============ GEOGRAPHIC FEATURE LABELS (seas, straits, gulfs) ============ */
+  .sea-label{
+    font-family: 'Cinzel', serif;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    color: #DCE9EE;
+    opacity: 0.65;
+    white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    pointer-events: none;
+  }
+  .river-label{
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: var(--parchment-light);
+    background: rgba(58,88,102,0.7);
+    padding: 1px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .volcano-icon{ font-size: 15px; line-height:1; cursor:pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+  .volcano-label{
+    font-family: 'Cinzel', serif;
+    font-size: 8.5px;
+    letter-spacing: 0.06em;
+    color: var(--parchment-light);
+    background: rgba(139,58,58,0.72);
+    padding: 1px 5px;
+    border-radius: 2px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* ============ MONSOON WIND STREAMLINES ============ */
+  /* Real (schematic) wind paths rather than fixed arrows — each streamline
+     is an SVG <path> Leaflet draws from the polyline's lat/lng points, and
+     the dash pattern is animated along it so the line visibly *flows* in
+     the wind's direction rather than just pointing in it. */
+  .monsoon-flow-line{
+    stroke-dasharray: 1 10;
+    animation: monsoon-flow 1s linear infinite;
+  }
+  @keyframes monsoon-flow{
+    to{ stroke-dashoffset: -22; }
+  }
+  .monsoon-arrowhead{
+    font-size: 17px;
+    line-height:1;
+    color: #F1E6C8;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.75);
+    pointer-events: none;
+  }
+
+  /* ============ BOTTOM-RIGHT LAYERS PANEL ============ */
+  .layers-panel-control{
+    display:flex;
+    flex-direction:column;
+    align-items: flex-end;
+    gap: 6px;
+    margin: 0 8px 8px 0 !important;
+  }
+  .layers-panel-toggle{
+    font-family:'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    background: var(--parchment-light);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 6px 10px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    white-space: nowrap;
+  }
+  .layers-panel-toggle:hover{ background: var(--parchment); }
+  .layers-panel-toggle.is-open{ background: var(--parchment-dark); }
+  .layers-panel-buttons{
+    flex-direction:column;
+    gap: 6px;
+    background: var(--parchment-light);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 8px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+  }
+  .layer-toggle-btn{
+    font-family:'Cinzel', serif;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    background: var(--parchment);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .layer-toggle-btn:hover{ background: var(--parchment-dark); }
+  .layer-toggle-btn.layer-off{
+    background: rgba(232,217,181,0.45);
+    color: rgba(43,35,32,0.55);
+    text-decoration: line-through;
+  }
+  .layer-toggle-btn.layer-off:hover{ background: rgba(232,217,181,0.65); }
+  .territory-disclaimer{
+    text-align:center;
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--parchment-dark);
+    opacity: 0.75;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 20px 14px;
+    flex-shrink: 0;
+  }
+
+  /* ============ COLLAPSIBLE LEGEND (mobile space-saver) ============ */
+  /* On tall/desktop viewports this stays open and reads exactly like the
+     original always-visible legend. On short/mobile viewports it collapses
+     to a single tappable summary line so the map itself keeps most of the
+     vertical space instead of being squeezed by two legend rows plus the
+     disclaimer paragraph underneath it. */
+  .legend-details{
+    flex-shrink: 0;
+  }
+  .legend-summary{
+    display: none; /* only shown under the mobile media query below */
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--parchment-dark);
+    padding: 2px 10px 8px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .legend-summary::-webkit-details-marker{ display:none; }
+  .legend-summary::before{
+    content: '▸ ';
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+  .legend-details[open] > .legend-summary::before{
+    transform: rotate(90deg);
+  }
+  .legend-summary:hover{ color: var(--parchment-light); }
+
+  .sea-monster{
+    opacity: 0.8;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));
+    pointer-events: none;
+  }
+  .dragon-label{
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    fill: var(--parchment-light);
+    opacity: 0.65;
+    font-style: italic;
+    pointer-events: none;
+  }
+
+  /* ============ MAIN MENU (full-screen splash) ============ */
+  .main-menu-overlay{
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(184,135,61,0.16), transparent 60%),
+      linear-gradient(180deg, #1E2D33 0%, var(--sea-deep) 45%, #241915 100%);
+    padding: 24px;
+    text-align: center;
+    animation: menu-fade-in 0.5s ease both;
+  }
+  @keyframes menu-fade-in{ from{ opacity:0; } to{ opacity:1; } }
+  .main-menu-overlay.is-closing{
+    animation: menu-fade-out 0.4s ease both;
+  }
+  @keyframes menu-fade-out{ to{ opacity:0; visibility:hidden; } }
+
+  .main-menu-compass{
+    font-size: 30px;
+    opacity: 0.7;
+    margin-bottom: 6px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  }
+  .main-menu-eyebrow{
+    font-family:'Cinzel', serif;
+    letter-spacing: 0.35em;
+    font-size: 12px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .main-menu-title{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size: clamp(30px, 6vw, 52px);
+    color: var(--parchment);
+    margin: 0 0 8px;
+    letter-spacing: 0.03em;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  }
+  .main-menu-subtitle{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--parchment-dark);
+    margin-bottom: 42px;
+    max-width: 520px;
+  }
+  .main-menu-section-label{
+    font-family:'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--parchment-dark);
+    opacity: 0.75;
+    margin-bottom: 16px;
+  }
+  .main-menu-books{
+    display:grid;
+    grid-template-columns: repeat(5, minmax(72px, 88px));
+    gap: 10px;
+    justify-content: center;
+    max-width: 620px;
+    margin-bottom: 8px;
+  }
+  .main-menu-book-btn{
+    font-family:'Cinzel', serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: 3px;
+    background: rgba(232,217,181,0.06);
+    color: var(--parchment-dark);
+    border: 1.5px solid rgba(217,197,153,0.35);
+    border-radius: 5px;
+    padding: 14px 6px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .main-menu-book-btn .bk-num{
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .main-menu-book-btn .bk-label{
+    font-family:'EB Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+  }
+  .main-menu-book-btn:hover{
+    border-color: var(--gold);
+    color: var(--parchment-light);
+    background: rgba(184,135,61,0.12);
+    transform: translateY(-2px);
+  }
+  .main-menu-book-btn.is-current{
+    background: var(--gold);
+    color: var(--ink);
+    border-color: var(--gold);
+    box-shadow: 0 4px 18px rgba(184,135,61,0.4);
+  }
+  .main-menu-book-btn.is-current .bk-label{ color: var(--ink); opacity:0.75; }
+  .main-menu-book-btn.is-unavailable{ opacity: 0.4; }
+  .main-menu-book-btn:focus-visible{
+    outline: 2.5px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .main-menu-lore-btn{
+    font-family:'Cinzel', serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    background: rgba(90,58,107,0.12);
+    color: var(--parchment-light);
+    border: 1.5px solid rgba(184,135,61,0.55);
+    border-radius: 5px;
+    padding: 12px 22px;
+    font-size: 12.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    margin-bottom: 22px;
+  }
+  .main-menu-lore-btn:hover{
+    border-color: var(--gold);
+    background: rgba(184,135,61,0.18);
+    transform: translateY(-2px);
+  }
+  .main-menu-lore-btn.is-current{
+    background: var(--gold);
+    color: var(--ink);
+    border-color: var(--gold);
+    box-shadow: 0 4px 18px rgba(184,135,61,0.4);
+  }
+  .main-menu-lore-btn:focus-visible{
+    outline: 2.5px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .main-menu-divider{
+    width: 60%;
+    max-width: 340px;
+    height: 1px;
+    background: rgba(217,197,153,0.25);
+    margin: 4px 0 20px;
+  }
+
+  .main-menu-enter-btn{
+    margin-top: 34px;
+    font-family:'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: var(--gold);
+    color: var(--ink);
+    border: 1.5px solid var(--gold);
+    border-radius: 4px;
+    padding: 13px 36px;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(184,135,61,0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .main-menu-enter-btn:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(184,135,61,0.5);
+  }
+  .main-menu-enter-sub{
+    margin-top: 10px;
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--parchment-dark);
+    opacity: 0.7;
+  }
+
+  .menu-return-btn{
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 500;
+    font-family:'Cinzel', serif;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--parchment-light);
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 7px 12px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.25);
+  }
+  .menu-return-btn:hover{ background: var(--parchment-dark); }
+
+  /* ============ NAKHODA MODE (embedded voyage sim) ============ */
+  .main-menu-sail-btn{
+    margin-top: 26px;
+    font-family:'Cinzel', serif;
+    font-size: 15px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #1d3a4f 0%, #10222f 100%);
+    color: var(--gold);
+    border: 1.5px solid var(--gold);
+    border-radius: 4px;
+    padding: 15px 40px;
+    cursor: pointer;
+    box-shadow: 0 8px 30px rgba(16,34,47,0.6), inset 0 1px 0 rgba(217,197,153,0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .main-menu-sail-btn:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 10px 36px rgba(184,135,61,0.45), inset 0 1px 0 rgba(217,197,153,0.35);
+  }
+  .main-menu-treasury{
+    margin-top: 8px;
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--gold);
+    opacity: 0.85;
+  }
+  .map-sail-btn{
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 500;
+    font-family:'Cinzel', serif;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: #10222f;
+    color: var(--gold);
+    border: 1.5px solid var(--gold);
+    border-radius: 3px;
+    padding: 7px 12px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.35);
+  }
+  .map-sail-btn:hover{ background: #1d3a4f; }
+  #sim-shell{
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    background: #0f172a;
+  }
+  #sim-shell.active{ display: block; }
+  #sim-shell iframe{
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+  #sim-loading{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--gold, #d9c599);
+    font-family:'Cinzel', serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 13px;
+    background: radial-gradient(ellipse at center, #14293a 0%, #0f172a 70%);
+    pointer-events: none;
+  }
+  #sim-loading .compass-spin{
+    font-size: 40px;
+    animation: nakhodaSpin 2.4s linear infinite;
+  }
+  @keyframes nakhodaSpin{ to{ transform: rotate(360deg); } }
+  @media (max-width: 640px){
+    .main-menu-sail-btn{ padding: 13px 30px; font-size: 13.5px; }
+  }
+
+  @media (max-width: 640px){
+    .main-menu-books{ grid-template-columns: repeat(3, minmax(64px, 84px)); }
+    .main-menu-title{ font-size: 28px; }
+    .main-menu-subtitle{ font-size: 14px; margin-bottom: 30px; }
+    .main-menu-enter-btn{ padding: 12px 28px; font-size: 13px; }
+  }
+
+  /* ============ TABS ============ */
+  /* At full width the row centers and wraps normally. Below the wrap
+     breakpoint it switches to a single horizontally-scrollable strip with
+     soft edge fades, so overflow is a deliberate swipeable row instead of
+     tabs silently clipping off the right edge. */
+  .tabs-wrap{
+    position: relative;
+    flex-shrink: 0;
+  }
+  .tabs{
+    display:flex;
+    justify-content:center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 10px 12px;
+  }
+  .tab-btn{
+    font-family:'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--parchment-dark);
+    border: 1.5px solid var(--parchment-dark);
+    border-radius: 3px;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .tab-btn:hover{
+    color: var(--parchment-light);
+    border-color: var(--parchment-light);
+  }
+  .tab-btn.active{
+    background: var(--gold);
+    color: var(--ink);
+    border-color: var(--gold);
+  }
+  @media (max-width: 900px){
+    .tabs{
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 16px 12px;
+    }
+    .tabs::-webkit-scrollbar{ display:none; }
+    .tab-btn{ padding: 7px 14px; font-size: 11px; }
+    .tabs-wrap::before, .tabs-wrap::after{
+      content:'';
+      position:absolute;
+      top:0; bottom:12px;
+      width: 22px;
+      pointer-events:none;
+      z-index: 2;
+    }
+    .tabs-wrap::before{
+      left:0;
+      background: linear-gradient(90deg, var(--sea-deep), transparent);
+    }
+    .tabs-wrap::after{
+      right:0;
+      background: linear-gradient(270deg, var(--sea-deep), transparent);
+    }
+  }
+
+  .tab-panel{ display:none; flex:1; min-height:0; }
+  .tab-panel.active{ display:flex; flex-direction:column; min-height:0; }
+
+  /* ============ DOCUMENT PANELS (character sheets / conflict) ============ */
+  .doc-scroll{
+    flex:1;
+    overflow-y:auto;
+    margin: 0 12px 12px;
+    padding: 32px clamp(16px, 5vw, 56px);
+    background: var(--parchment-light);
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px var(--gold), 0 0 0 7px var(--parchment-dark), 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .doc-content{
+    max-width: 760px;
+    margin: 0 auto;
+    font-family:'EB Garamond', serif;
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+  .doc-content h2{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size: 26px;
+    color: var(--sienna);
+    margin: 0 0 4px;
+    letter-spacing: 0.02em;
+  }
+  .doc-content h2.char-name{
+    margin-top: 42px;
+    padding-top: 30px;
+    border-top: 1px solid var(--parchment-dark);
+  }
+  .doc-content h2.char-name:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
+
+  /* ============ CHARACTER LIST / DETAIL ============ */
+  .char-role-section{ margin-top: 28px; }
+  .char-role-section:first-child{ margin-top: 0; }
+  .char-role-heading{
+    font-family:'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--sienna);
+    border-bottom: 1.5px solid var(--sienna);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+  .char-role-sub{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink);
+    opacity: 0.65;
+    margin: 4px 0 2px;
+  }
+  .char-team-tag{
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--sea-deep);
+    background: var(--parchment-dark);
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 2px;
+    margin: 8px 0 4px;
+  }
+  .char-row-team{
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--sienna);
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+  .char-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding: 16px 4px;
+    border-bottom: 1px solid var(--parchment-dark);
+    cursor: pointer;
+    transition: padding-left 0.15s ease;
+  }
+  .char-row:hover{ padding-left: 8px; }
+  .char-row:focus-visible{
+    outline: 2.5px solid var(--gold);
+    outline-offset: -2px;
+    padding-left: 8px;
+  }
+  .char-row:last-child{ border-bottom: none; }
+  .char-row-name{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:700;
+    font-size: 19px;
+    color: var(--ink);
+  }
+  .char-row-title{
+    font-family:'EB Garamond', serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--ink);
+    opacity: 0.65;
+    margin-top: 2px;
+  }
+  .char-row-arrow{
+    font-family:'Cinzel', serif;
+    font-size: 18px;
+    color: var(--gold);
+    flex-shrink:0;
+    margin-left: 12px;
+  }
+  .loc-tier-block{ margin-bottom: 22px; }
+  .loc-tier-heading{
+    font-family:'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sienna);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1.5px solid var(--parchment-dark);
+  }
+  .loc-tier-sub{
+    font-family:'EB Garamond', serif;
+    font-style: italic;
+    font-size: 12.5px;
+    opacity: 0.65;
+    margin: -2px 0 6px;
+  }
+  .loc-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding: 13px 4px;
+    border-bottom: 1px solid var(--parchment-dark);
+    cursor: pointer;
+    transition: padding-left 0.15s ease;
+  }
+  .loc-row:hover{ padding-left: 8px; }
+  .loc-row:focus-visible{
+    outline: 2.5px solid var(--gold);
+    outline-offset: -2px;
+    padding-left: 8px;
+  }
+  .loc-row:last-child{ border-bottom: none; }
+  .loc-row-rank{
+    font-family:'Cinzel', serif;
+    font-size: 13px;
+    color: var(--parchment-dark);
+    width: 20px;
+    flex-shrink: 0;
+  }
+  .loc-row-name{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:700;
+    font-size: 18px;
+    color: var(--ink);
+    flex: 1;
+  }
+  .loc-row-arrow{
+    font-family:'Cinzel', serif;
+    font-size: 16px;
+    color: var(--gold);
+    flex-shrink:0;
+    margin-left: 10px;
+  }
+  .back-btn{
+    font-family:'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--sienna);
+    border: 1.5px solid var(--sienna);
+    border-radius: 3px;
+    padding: 8px 16px;
+    cursor: pointer;
+    margin-bottom: 24px;
+    transition: all 0.15s ease;
+  }
+  .back-btn:hover{
+    background: var(--sienna);
+    color: var(--parchment-light);
+  }
+  .doc-content .char-title{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.75;
+    margin: 0 0 14px;
+  }
+  .doc-content h3{
+    font-family:'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 34px 0 8px;
+  }
+  .doc-content p{ margin: 0 0 12px; }
+  .doc-content ul{ margin: 0 0 14px; padding-left: 22px; }
+  .doc-content li{ margin-bottom: 8px; }
+  .doc-content li b{ color: var(--sienna); }
+  .doc-content strong{ color: var(--sienna); }
+  .doc-content em{ font-style: italic; }
+  .doc-content hr{
+    border:none;
+    border-top: 1px solid var(--parchment-dark);
+    margin: 30px 0;
+  }
+  .doc-eyebrow{
+    font-family:'Cinzel', serif;
+    letter-spacing: 0.3em;
+    font-size: 11px;
+    color: var(--sienna);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .doc-title{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size: clamp(24px, 4vw, 34px);
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+  .doc-subtitle{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+    opacity: 0.7;
+    margin-bottom: 28px;
+  }
+  .conflict-table{
+    width:100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 14.5px;
+  }
+  .conflict-table th, .conflict-table td{
+    border: 1px solid var(--parchment-dark);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .conflict-table th{
+    font-family:'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(184,135,61,0.15);
+    color: var(--sienna);
+  }
+  .lexicon-table{
+    font-size: 13px;
+    display: block;
+    max-height: 520px;
+    overflow-y: auto;
+    border: 1px solid var(--parchment-dark);
+  }
+  .lexicon-table tr{ display:table; width:100%; table-layout:fixed; }
+  .lexicon-table tr:first-child{ position:sticky; top:0; z-index:1; }
+  .lexicon-table td, .lexicon-table th{ padding: 6px 10px; }
+  .lexicon-table td:first-child{ width: 30%; font-family:'Cormorant Garamond', serif; font-style:italic; color: var(--sienna); }
+  .tagline-block{
+    font-family:'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 20px;
+    text-align:center;
+    color: var(--sienna);
+    padding: 20px;
+    margin: 20px 0;
+    border-top: 1px solid var(--parchment-dark);
+    border-bottom: 1px solid var(--parchment-dark);
+  }
+
+  /* ============ CONNECTIONS TAB ============ */
+  .connections-diagram-wrap{
+    margin: 0 0 26px;
+    padding: 14px;
+    background: var(--parchment);
+    border: 1.5px solid var(--parchment-dark);
+    border-radius: 4px;
+  }
+  #connections-svg{ width:100%; height:auto; display:block; }
+  .conn-node-dot{ fill: var(--parchment-light); stroke: var(--ink); stroke-width:1.5; cursor:pointer; }
+  .conn-node-dot:hover{ fill: var(--gold); }
+  .conn-node-label{ font-family:'Cinzel', serif; font-size:9px; fill: var(--ink); cursor:pointer; }
+  .conn-node-label:hover{ fill: var(--sienna); }
+  .conn-edge-line{ fill:none; cursor:pointer; }
+  .conn-edge-hit{ fill:none; stroke: transparent; stroke-width:12; cursor:pointer; }
+  .conn-ext-dot{ fill: var(--parchment-dark); stroke: var(--ink); stroke-width:1; cursor:pointer; }
+  .conn-ext-label{ font-family:'EB Garamond', serif; font-style:italic; font-size:8.5px; fill: var(--ink); opacity:0.8; cursor:pointer; }
+
+  .conn-legend{ display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:12px; padding-top:12px; border-top: 1px solid var(--parchment-dark); font-size:12px; }
+  .conn-legend-item{ display:flex; align-items:center; gap:7px; }
+  .conn-legend-swatch{ width:24px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block; }
+
+  .conn-detail-panel{
+    display:none;
+    margin: 0 0 26px;
+    padding: 16px 18px;
+    background: rgba(184,135,61,0.14);
+    border: 1.5px solid var(--gold);
+    border-radius: 4px;
+  }
+  .conn-detail-type{ font-family:'Cinzel', serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color: var(--sienna); margin-bottom:4px; }
+  .conn-detail-pair{ font-family:'Cormorant Garamond', serif; font-weight:700; font-size:19px; margin-bottom:8px; }
+  .conn-detail-text{ margin-bottom:14px; }
+  .conn-detail-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .conn-jump-btn{
+    font-family:'Cinzel', serif; font-size:11px; letter-spacing:0.05em; text-transform:uppercase;
+    background:transparent; border:1.5px solid var(--sienna); color:var(--sienna);
+    border-radius:3px; padding:7px 13px; cursor:pointer; transition: all 0.15s ease;
+  }
+  .conn-jump-btn:hover{ background:var(--sienna); color:var(--parchment-light); }
+
+  .conn-group-block{ margin-bottom: 8px; }
+  .conn-row{
+    display:flex; flex-direction:column; gap:3px;
+    padding: 13px 10px; border-bottom: 1px solid var(--parchment-dark);
+    border-left: 4px solid transparent; cursor:pointer;
+    transition: padding-left 0.15s ease, background 0.15s ease;
+  }
+  .conn-row:hover{ padding-left: 16px; background: rgba(184,135,61,0.08); }
+  .conn-row:last-child{ border-bottom:none; }
+  .conn-row-pair{ font-family:'Cormorant Garamond', serif; font-weight:700; font-size:16px; color:var(--ink); }
+  .conn-row-text{ font-size:13.5px; opacity:0.78; }
+
+  /* ---- Trade & Goods flow cards ---- */
+  .goods-card{
+    border: 1.5px solid var(--parchment-dark);
+    border-left: 5px solid var(--sienna);
+    border-radius: 3px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: rgba(255,255,255,0.25);
+  }
+  .goods-card.is-monopoly{ border-left-color: var(--rust); }
+  .goods-card-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap: 6px 12px;
+    margin-bottom: 8px;
+  }
+  .goods-card-name{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .goods-card-tag{
+    font-family:'Cinzel', serif;
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--parchment-light);
+    background: var(--sienna);
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .goods-card.is-monopoly .goods-card-tag{ background: var(--rust); }
+  .goods-flow{
+    display:flex;
+    align-items:stretch;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 10px 0 10px;
+    font-size: 13px;
+  }
+  .goods-flow-step{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    padding: 6px 10px;
+    min-width: 110px;
+  }
+  .goods-flow-step-label{
+    font-family:'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sienna);
+    opacity: 0.85;
+  }
+  .goods-flow-step-value{
+    font-family:'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .goods-flow-arrow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--gold);
+    font-size: 16px;
+    padding: 0 2px;
+    opacity: 0.85;
+  }
+  .goods-card-note{ font-size: 13.5px; opacity: 0.85; margin: 0; }
+  .goods-card-routes{
+    margin-top: 10px;
+    display:flex;
+    flex-wrap:wrap;
+    gap: 6px;
+  }
+  .goods-route-chip{
+    font-family:'EB Garamond', serif;
+    font-size: 12px;
+    border: 1px solid var(--sienna);
+    color: var(--sienna);
+    background: rgba(168,84,46,0.07);
+    border-radius: 12px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .goods-route-chip:hover{ background: rgba(168,84,46,0.18); }
+  @media (max-width: 640px){
+    .goods-flow{ flex-direction: column; }
+    .goods-flow-arrow{ transform: rotate(90deg); padding: 2px 0; }
+  }
+
+  @media (max-width: 640px){
+    .title-block{ padding: 10px 8px 6px; }
+    .map-wrap{ margin: 0 6px 6px; }
+    .legend{ gap:10px; font-size:11px; padding-bottom:8px; }
+    .map-pin-label{ font-size: 9px; padding: 1px 4px; }
+    .location-jump-select{ font-size: 11px; max-width: 110px; padding: 5px 6px; }
+    .reset-view-btn{ font-size: 10px; padding: 5px 8px; }
+    .doc-scroll{ padding: 22px 16px; }
+    .doc-content{ font-size: 15px; }
+    .tab-btn{ padding: 7px 12px; font-size: 10.5px; }
+    .conflict-table{ font-size: 12.5px; }
+    .conn-node-label{ font-size: 7.5px; }
+    .conn-ext-label{ font-size: 7px; }
+
+    /* Collapse the legend behind a tappable summary so the map keeps most
+       of the screen; the disclaimer/legend rows are one tap away instead
+       of permanently eating vertical space above the fold. */
+    .legend-summary{ display: block; }
+    .territory-disclaimer{ padding: 0 14px 12px; font-size: 11px; }
+  }
+
+  /* Short viewports (landscape phones, small laptops in a small window)
+     benefit from the same collapse even above 640px width, since the
+     constraint there is height, not width. */
+  @media (max-height: 700px){
+    .legend-summary{ display: block; }
+  }
+
+/* ============ VOYAGE LAYER (live sim state on the chart) ============ */
+.voyage-ship-icon{ background:none; border:none; }
+.voyage-ship-inner{
+  font-size:22px; line-height:34px; text-align:center;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55));
+  animation: voyage-bob 2.6s ease-in-out infinite;
+}
+@keyframes voyage-bob{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-3px);} }
+.voyage-charter-target{ animation: voyage-pulse 1.6s ease-in-out infinite; }
+@keyframes voyage-pulse{ 0%,100%{ stroke-opacity:1; } 50%{ stroke-opacity:0.35; } }
+.voyage-known-popup{ font-family:'EB Garamond', serif; font-size:14px; line-height:1.45; }
