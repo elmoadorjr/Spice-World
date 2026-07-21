@@ -7,7 +7,7 @@
 - **Spice World Map** (`index.html`) — an interactive Leaflet chart of the Nusantara with layers for kingdoms and spheres of influence, trade routes and goods flows, monsoon winds, volcanoes, settlements, and pilgrimage sites — plus worldbuilding tabs: character sheets, locations, connections, conflicts, mythos, ledger, almanac, vessels, goods, and economy. The chart also shows your live voyage: your ship's position, every port you've charted, and your active charter.
 - **Nakhoda Mode** (`sim.html`) — a 3D sailing sim (Three.js): captain a jong through the Eastern Seas, trading between ports, riding the monsoon, and dodging pirates. Its world *is* the atlas map: every island sits where the real port sits, so Melaka truly guards the strait and the Maluku spice islands truly are the far east.
 
-The map and the sim share one save (`nakhoda-save-v3`): money, cargo, ship, reputation, position, and charted-port intel persist across both, and across reloads.
+The map and the sim share one save (`nakhoda-save-v4`): money, cargo, ship, reputation, faction standing, position, and charted-port intel persist across both, and across reloads.
 
 ## Project layout
 
@@ -16,9 +16,12 @@ index.html            atlas shell (menu, map, codex tabs)
 sim.html              the Nakhoda voyage sim
 css/atlas.css         atlas styles
 js/data/ports.js      the 40 ports: names, coordinates, projection (shared by both pages)
+js/data/factions.js   the polities each port answers to, and their reputation
 js/atlas/*.js         atlas code, in load order (10-voyage-layer.js draws live sim state)
 vendor/               Leaflet, Three.js, generated Tailwind — no CDNs, works offline
 ```
+
+`borobudur-trading-sim.html` is a standalone prototype exploring the same trading-sim idea from a different angle (its own faction set, procedural Tone.js audio, single-cargo-slot delivery runs). It's a separate, self-contained page — not wired into the atlas or the Nakhoda save.
 
 No build step — plain static files.
 

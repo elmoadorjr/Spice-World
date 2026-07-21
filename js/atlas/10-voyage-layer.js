@@ -2,7 +2,7 @@
 // The chart room is a strategic layer, not just a codex: it shows where your
 // ship rides at anchor, every port you've charted (with its trade intel), and
 // the port your active charter is bound for. Data comes from the shared save
-// (nakhoda-save-v3) and js/data/ports.js — the same fixed world the sim sails.
+// (nakhoda-save-v4) and js/data/ports.js — the same fixed world the sim sails.
 (function(){
   if (typeof map === 'undefined' || typeof PORT_DATA === 'undefined') return;
 
@@ -29,9 +29,12 @@
       const k = known[name];
       const isTarget = save.contract && PORT_DATA[save.contract.destIdx] &&
                        PORT_DATA[save.contract.destIdx].name === name;
+      const fKey = (typeof factionForPort === 'function') ? factionForPort(name) : null;
+      const faction = fKey ? FACTIONS[fKey] : null;
+      const rep = faction ? ((save.factionRep && save.factionRep[fKey]) || 0) : null;
       const marker = L.circleMarker([p.lat, p.lng], {
         radius: isTarget ? 9 : 6,
-        color: isTarget ? '#2c7a4b' : '#8B3A3A',
+        color: faction ? faction.color : (isTarget ? '#2c7a4b' : '#8B3A3A'),
         weight: 2, fillColor: '#F1E6C8', fillOpacity: 0.9,
         className: isTarget ? 'voyage-charter-target' : ''
       });
@@ -39,7 +42,9 @@
         `<div class="voyage-known-popup"><b>${name}</b> — charted day ${k.day}` +
         (isTarget ? `<br><b style="color:#2c7a4b;">⚓ Charter bound here: ${save.contract.qty}× ${save.contract.good}</b>` : '') +
         `<br>Produces: ${(k.produces || []).join(', ') || '?'}` +
-        `<br>Craves: ${(k.demands || []).join(', ') || '?'}</div>`);
+        `<br>Craves: ${(k.demands || []).join(', ') || '?'}` +
+        (faction ? `<br><span style="color:${faction.color};">${faction.name}</span> standing: ${rep > 0 ? '+' : ''}${rep}` : '<br><span style="opacity:0.7;">Independent port</span>') +
+        `</div>`);
       voyageLayer.addLayer(marker);
     });
 
@@ -61,7 +66,8 @@
   window.updateVoyageLayer = render;
   let last = null;
   try {
-    last = JSON.parse(localStorage.getItem('nakhoda-save-v3') || 'null')
+    last = JSON.parse(localStorage.getItem('nakhoda-save-v4') || 'null')
+        || JSON.parse(localStorage.getItem('nakhoda-save-v3') || 'null')
         || JSON.parse(localStorage.getItem('nakhoda-save-v2') || 'null');
   } catch(e) {}
   render(last);
