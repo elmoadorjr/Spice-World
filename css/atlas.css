@@ -1455,3 +1455,15 @@
   @media (max-height: 700px){
     .legend-summary{ display: block; }
   }
+
+/* ============ VOYAGE LAYER (live sim state on the chart) ============ */
+.voyage-ship-icon{ background:none; border:none; }
+.voyage-ship-inner{
+  font-size:22px; line-height:34px; text-align:center;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55));
+  animation: voyage-bob 2.6s ease-in-out infinite;
+}
+@keyframes voyage-bob{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-3px);} }
+.voyage-charter-target{ animation: voyage-pulse 1.6s ease-in-out infinite; }
+@keyframes voyage-pulse{ 0%,100%{ stroke-opacity:1; } 50%{ stroke-opacity:0.35; } }
+.voyage-known-popup{ font-family:'EB Garamond', serif; font-size:14px; line-height:1.45; }

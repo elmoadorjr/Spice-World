@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="vendor/tailwind.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <script src="vendor/three.min.js"></script>
+    <script src="js/data/ports.js"></script>
     
     <style>
         :root {
@@ -450,13 +451,8 @@
         // NAKHODA GAME CORE — economy, progression, ranks (from the
         // Austronesia Saga "Ascension" lore ladder)
         // ============================================================
-        const PORT_NAMES = [
-            "Melaka","Pasai","Palembang","Jambi","Banten","Sunda Kelapa","Demak","Tuban",
-            "Gresik","Surabaya","Banjarmasin","Brunei","Jolo","Maynila","Tondo","Sugbu",
-            "Butuan","Cotabato","Ternate","Tidore","Banda","Ambon","Hitu","Makassar",
-            "Buton","Timor","Patani","Pahang","Kedah","Terengganu","Aru","Gowa",
-            "Mindoro","Aceh","Bali","Lombok","Bima","Kupang","Zamboanga","Panay"
-        ];
+        // Port names + positions live in js/data/ports.js (PORT_DATA),
+        // shared with the atlas map.
         const MALUKU_PORTS = ["Ternate","Tidore","Banda","Ambon","Hitu"];
         const ENTREPOT_PORTS = ["Melaka","Brunei","Maynila","Demak","Pasai","Makassar"];
 
@@ -500,7 +496,8 @@
             upg: { hull:0, sails:0, guns:0 },
             contract: null,               // { good, qty, destIdx, reward, expiresDay }
             stats: { deliveries:0, piratesSunk:0, merchantsSunk:0, earned:0 },
-            seaLord: false
+            seaLord: false,
+            known: {}                     // port intel gathered by visiting: { portName: { day, produces, demands } }
         };
         let portOpen = null;              // dock currently docked at
         let nearDockRef = null;
@@ -525,9 +522,9 @@
         }
 
         function assignPortNames() {
-            const names = PORT_NAMES.slice();
-            // Guarantee the legendary ports exist in every generated world
-            docks.forEach((d, i) => { d.name = names[i % names.length] + (i >= names.length ? " Kampong" : ""); d.idx = i; });
+            // One dock per PORT_DATA entry, in order — indices are stable
+            // across sessions, so saved contracts point at the same port.
+            docks.forEach((d, i) => { d.name = PORT_DATA[i].name; d.idx = i; });
         }
 
         function buildEconomies(){
@@ -557,10 +554,20 @@
         function notifyParent(msg) { try { if (window.parent && window.parent !== window) window.parent.postMessage(msg, "*"); } catch (e) {} }
 
         function saveGame(){
-            notifyParent({ type:"nakhoda-save", save: {
+            const save = {
+                v: 3,
                 gold: game.gold, day: game.day, rep: game.rep, cargo: game.cargo,
-                tier: game.tier, upg: game.upg, stats: game.stats, seaLord: game.seaLord
-            }});
+                tier: game.tier, upg: game.upg, stats: game.stats, seaLord: game.seaLord,
+                contract: game.contract, known: game.known
+            };
+            // The world is fixed geography now, so a voyage can resume mid-sea.
+            if (typeof shipWrapper !== 'undefined' && shipWrapper) {
+                save.x = Math.round(shipWrapper.position.x);
+                save.z = Math.round(shipWrapper.position.z);
+                save.heading = shipParams.heading;
+                save.hp = Math.round(shipParams.hp);
+            }
+            notifyParent({ type:"nakhoda-save", save });
         }
         function loadGame(s){
             if (!s) return;
@@ -568,7 +575,16 @@
             game.cargo = s.cargo || {}; game.tier = Math.min(s.tier ?? 0, SHIP_TIERS.length-1);
             game.upg = Object.assign({hull:0,sails:0,guns:0}, s.upg);
             game.stats = Object.assign(game.stats, s.stats); game.seaLord = !!s.seaLord;
+            game.known = s.known || {};
+            game.contract = (s.contract && docks[s.contract.destIdx]) ? s.contract : null;
+            currentDestination = game.contract ? docks[game.contract.destIdx] : null;
             applyShipStats(true);
+            if (typeof s.x === 'number' && typeof s.z === 'number' && shipWrapper) {
+                shipWrapper.position.set(s.x, 0, s.z);
+                if (typeof s.heading === 'number') shipParams.heading = s.heading;
+            }
+            if (typeof s.hp === 'number') shipParams.hp = Math.max(50, Math.min(s.hp, shipParams.maxHp));
+            updateVitalsUI();
             refreshGameHUD();
         }
 
@@ -671,8 +687,9 @@
             createWindParticles();
             createNavigationGuides();
             
-            createWorld(); 
+            createWorld();
             createBorobudurShip();
+            spawnOffMelaka();
             setupCombatSystem(); 
             
             spawnAIFleets(); 
@@ -905,6 +922,7 @@
                 if (c.qty <= 0) delete game.cargo[g.n];
             }
             refreshGameHUD(); renderPortBody(dock);
+            saveGame(); // a trade is real money — never lose it to a closed tab
         }
 
         function doRepair(){
@@ -1884,6 +1902,17 @@
             shipWrapper.add(ship); scene.add(shipWrapper);
         }
 
+        // New voyages begin in the Melaka roadstead — the story's front door.
+        // A loaded save overrides this with the ship's last position.
+        function spawnOffMelaka() {
+            const melaka = docks.find(d => d.name === "Melaka");
+            if (!melaka || !shipWrapper) return;
+            const isle = islandData[docks.indexOf(melaka)];
+            const dx = melaka.x - isle.x, dz = melaka.z - isle.z;
+            const d = Math.hypot(dx, dz) || 1;
+            shipWrapper.position.set(melaka.x + (dx / d) * 35, 0, melaka.z + (dz / d) * 35);
+        }
+
         function getSafeSpawnPoint() {
             for(let i=0; i<100; i++) {
                 let x = (Math.random() - 0.5) * 1600; let z = (Math.random() - 0.5) * 1600; let safe = true;
@@ -2107,19 +2136,12 @@
             const crateMat = new THREE.MeshStandardMaterial({ color: 0xd97736, roughness: 0.8 });
             const goldMat = new THREE.MeshStandardMaterial({ color: COLORS.accent, emissive: 0xaa7700, emissiveIntensity: 0.2, roughness: 0.3, metalness: 0.8 });
 
-            const numIslands = 40; const spawnPoints = []; let attempts = 0;
+            // Fixed geography: islands sit where the real ports sit (see
+            // js/data/ports.js), so Melaka truly guards the strait and the
+            // Maluku spice islands truly are the far east of the world.
+            const spawnPoints = computeWorldLayout();
 
-            while (spawnPoints.length < numIslands && attempts < 2500) {
-                attempts++;
-                const angle = Math.random() * Math.PI * 2; const radius = 220 + Math.random() * 1500; 
-                const x = Math.cos(angle) * radius; const z = Math.sin(angle) * radius;
-                const scale = 0.8 + Math.random() * 2.5; const islandRadius = 16 * scale;
-                let overlap = false;
-                for (let pt of spawnPoints) { if (Math.hypot(pt.x - x, pt.z - z) < (pt.islandRadius + islandRadius + 80)) { overlap = true; break; } }
-                if (!overlap) spawnPoints.push({ x, z, scale, islandRadius });
-            }
-
-            spawnPoints.forEach((point) => {
+            spawnPoints.forEach((point, portIdx) => {
                 const island = new THREE.Group();
                 const beach = new THREE.Mesh(islandGeo, sandMat); beach.position.y = -0.5; beach.receiveShadow = true; island.add(beach);
                 const numHills = 1 + Math.floor(Math.random()*3);
@@ -2133,9 +2155,9 @@
                     tree.add(trunk); tree.add(leaves); const treeAngle = Math.random() * Math.PI * 2; const treeRadius = Math.random() * 11; 
                     tree.position.set(Math.cos(treeAngle) * treeRadius, 1.5, Math.sin(treeAngle) * treeRadius); tree.scale.setScalar(0.7 + Math.random() * 0.6); tree.rotation.x = (Math.random()-0.5)*0.2; tree.rotation.z = (Math.random()-0.5)*0.2; island.add(tree);
                 }
-                island.position.set(point.x, 1.2, point.z); island.rotation.y = Math.random() * Math.PI * 2; island.scale.setScalar(point.scale); scene.add(island); islandData.push({ x: point.x, z: point.z, radius: point.islandRadius });
+                island.position.set(point.x, 1.2, point.z); island.rotation.y = portHashNoise(portIdx, 6, 2) * Math.PI * 2; island.scale.setScalar(point.scale); scene.add(island); islandData.push({ x: point.x, z: point.z, radius: point.islandRadius });
 
-                if (Math.random() > 0.15) { 
+                { // every island is a real port with a dock
                     const dockGroup = new THREE.Group();
                     const planks = new THREE.Mesh(plankGeo, woodMat); planks.position.set(0, 2.0, 8); planks.castShadow = true; planks.receiveShadow = true; dockGroup.add(planks);
                     for(let p = 0; p < 4; p++) { const post = new THREE.Mesh(postGeo, woodMat); post.position.set(p%2===0 ? -1.2 : 1.2, 0.5, 3 + Math.floor(p/2) * 10); dockGroup.add(post); }
@@ -2153,7 +2175,7 @@
                     goodsGroup.position.set(0, 1.5, 13); goodsGroup.userData = { startY: 1.5, offset: Math.random() * 10, indicator: indicator }; dockGroup.add(goodsGroup);
 
                     dockGroup.scale.setScalar(1 / point.scale);
-                    const localDockAngle = Math.random() * Math.PI * 2; const edgeRadius = 13.5; 
+                    const localDockAngle = portHashNoise(portIdx, 5, 3) * Math.PI * 2; const edgeRadius = 13.5;
                     const edgeX = Math.cos(localDockAngle) * edgeRadius; const edgeZ = Math.sin(localDockAngle) * edgeRadius;
                     dockGroup.position.set(edgeX, 0, edgeZ); dockGroup.lookAt(edgeX * 2, dockGroup.position.y, edgeZ * 2); island.add(dockGroup);
                     island.updateMatrixWorld(true); const dockGlobalPos = new THREE.Vector3(0, 0, 14); dockGlobalPos.applyMatrix4(dockGroup.matrixWorld);
@@ -2473,7 +2495,14 @@
             portOpen = dock;
             shipParams.speed = 0; shipParams.sailDeployed = 0;
             keys.w = keys.a = keys.s = keys.d = false;
+            // Visiting a port charts it: the atlas map can now show its trade.
+            game.known[dock.name] = {
+                day: game.day,
+                produces: dock.produces.map(i => GOODS[i].n),
+                demands: dock.demands.map(i => GOODS[i].n)
+            };
             openPortPanel(dock);
+            saveGame();
         }
 
         function leavePort(){

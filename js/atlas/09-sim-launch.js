@@ -11,7 +11,13 @@
   let simFrame = null;
   let saveData = null;
 
-  try { saveData = JSON.parse(localStorage.getItem('nakhoda-save-v2') || 'null'); } catch(e) {}
+  // v3 saves add position/hp/contract/known-port intel; a v2 save still
+  // loads fine (the sim fills the gaps) and is rewritten as v3 on next save.
+  try {
+    saveData = JSON.parse(localStorage.getItem('nakhoda-save-v3') || 'null')
+            || JSON.parse(localStorage.getItem('nakhoda-save-v2') || 'null');
+    if (saveData && typeof saveData !== 'object') saveData = null;
+  } catch(e) { saveData = null; }
 
   const TIER_NAMES = ['Kelulus','Pencalang','Malangbang','Lancaran','Jong'];
   function renderTreasury(){
@@ -23,8 +29,9 @@
 
   function storeSave(s){
     saveData = s;
-    try { localStorage.setItem('nakhoda-save-v2', JSON.stringify(s)); } catch(e) {}
+    try { localStorage.setItem('nakhoda-save-v3', JSON.stringify(s)); } catch(e) {}
     renderTreasury();
+    if (window.updateVoyageLayer) window.updateVoyageLayer(s);
   }
 
   function currentBookTitle(){
