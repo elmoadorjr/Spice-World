@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <script src="vendor/three.min.js"></script>
     <script src="js/data/ports.js"></script>
+    <script src="js/data/factions.js"></script>
     
     <style>
         :root {
@@ -521,8 +522,25 @@
             contract: null,               // { good, qty, destIdx, reward, expiresDay }
             stats: { deliveries:0, piratesSunk:0, merchantsSunk:0, earned:0 },
             seaLord: false,
-            known: {}                     // port intel gathered by visiting: { portName: { day, produces, demands } }
+            known: {},                    // port intel gathered by visiting: { portName: { day, produces, demands } }
+            factionRep: {},               // standing with each polity: { factionKey: -100..100 }
+            lastRankSeen: RANKS[0].n       // last Ascension rung shown to the player, for rank-up overlays
         };
+
+        function getFactionRep(key){ return key ? (game.factionRep[key] || 0) : 0; }
+        function addFactionRep(key, v){
+            if (!key) return;
+            game.factionRep[key] = Math.max(-100, Math.min(100, getFactionRep(key) + v));
+        }
+        // Good reputation buys cheaper goods and better sale prices; a hostile
+        // court taxes and lowballs a nakhoda it doesn't trust. Independent
+        // ports (no faction claim) never apply this.
+        function tariffMult(dockIdx, mode){
+            const fKey = (typeof factionForPort === 'function') ? factionForPort(docks[dockIdx].name) : null;
+            if (!fKey) return 1;
+            const t = Math.max(-0.20, Math.min(0.20, getFactionRep(fKey) / 500));
+            return mode === 'buy' ? (1 - t) : (1 + t);
+        }
         let portOpen = null;              // dock currently docked at
         let nearDockRef = null;
         let lastCycle = 0;
@@ -542,7 +560,8 @@
             if (d.produces.includes(goodIdx)) mult = 0.5 + hashNoise(dockIdx, goodIdx, game.day) * 0.15;
             if (d.demands.includes(goodIdx))  mult = 1.7 + hashNoise(dockIdx, goodIdx, game.day) * 0.5;
             let base = g.p * mult;
-            return Math.max(2, Math.round(mode === 'buy' ? base * 1.06 : base * 0.94));
+            let price = (mode === 'buy' ? base * 1.06 : base * 0.94) * tariffMult(dockIdx, mode);
+            return Math.max(2, Math.round(price));
         }
 
         function assignPortNames() {
@@ -579,10 +598,11 @@
 
         function saveGame(){
             const save = {
-                v: 3,
+                v: 4,
                 gold: game.gold, day: game.day, rep: game.rep, cargo: game.cargo,
                 tier: game.tier, upg: game.upg, stats: game.stats, seaLord: game.seaLord,
-                contract: game.contract, known: game.known
+                contract: game.contract, known: game.known,
+                factionRep: game.factionRep, lastRankSeen: game.lastRankSeen
             };
             // The world is fixed geography now, so a voyage can resume mid-sea.
             if (typeof shipWrapper !== 'undefined' && shipWrapper) {
@@ -600,6 +620,8 @@
             game.upg = Object.assign({hull:0,sails:0,guns:0}, s.upg);
             game.stats = Object.assign(game.stats, s.stats); game.seaLord = !!s.seaLord;
             game.known = s.known || {};
+            game.factionRep = s.factionRep || {};
+            game.lastRankSeen = s.lastRankSeen || rankName();
             game.contract = (s.contract && docks[s.contract.destIdx]) ? s.contract : null;
             currentDestination = game.contract ? docks[game.contract.destIdx] : null;
             applyShipStats(true);
@@ -630,11 +652,17 @@
             el.classList.add('scale-110'); setTimeout(()=>el.classList.remove('scale-110'), 250);
             checkSeaLord();
         }
-        function addRep(v){ game.rep = Math.max(0, game.rep + v); refreshGameHUD(); checkSeaLord(); }
+        function addRep(v){ game.rep = Math.max(0, game.rep + v); refreshGameHUD(); checkSeaLord(); checkRankUp(); }
 
+        // "Visible to power" -- the one Sea Lord Minimum a nakhoda can't
+        // grant himself. Represented here as at least one polity's standing
+        // having actually risen high enough to take notice of him.
+        function noticedByPower(){
+            return Object.keys(game.factionRep).some(k => game.factionRep[k] >= 60);
+        }
         function checkSeaLord(){
-            if (!game.seaLord && game.tier >= 4 && game.gold >= SEA_LORD_GOLD && game.rep >= SEA_LORD_REP) {
-                game.seaLord = true; saveGame();
+            if (!game.seaLord && game.tier >= 4 && game.gold >= SEA_LORD_GOLD && game.rep >= SEA_LORD_REP && noticedByPower()) {
+                game.seaLord = true; game.lastRankSeen = "Sea Lord"; saveGame();
                 showEventOverlay("\u2694\uFE0F The Sultan's Envoy",
                     `A prahu flying court colors hails you at dawn. A syahbandar's letter, sealed in wax: your name, written by a sultan's own scribe.<br><br>` +
                     `<b>You have been seen by power.</b> Jong flagship. Surplus wealth. A name every port remembers. The board has noticed you — which was the one condition you could never grant yourself.<br><br>` +
@@ -643,6 +671,39 @@
                     `The sea remains. Keep sailing, Sea Lord — the Game above the waves is only beginning.`);
                 refreshGameHUD();
             }
+        }
+
+        // ---------- Rank-up story beats (the Ascension ladder, played out) ----------
+        let overlayQueue = [];
+        function queueEventOverlay(title, bodyHtml){
+            if (document.getElementById('nk-event-overlay').style.display === 'flex') overlayQueue.push([title, bodyHtml]);
+            else showEventOverlay(title, bodyHtml);
+        }
+        const RANK_FLAVOR = {
+            "Nakhoda": {
+                title: "\u2693 Nakhoda",
+                body: "Full and proper now. His ship, his cargo, his stake, his risk. Known by name in a port or two, owed money in another. He answers to no court and kneels to no throne — and everything he has, the sea gave him, and the sea can take back."
+            },
+            "Rising Nakhoda": {
+                title: "\u26F5 Rising Nakhoda",
+                body: "Not yet a name every port fears — but a name every port remembers. He's stopped being interchangeable with every other captain on the jetty."
+            },
+            "Master Nakhoda": {
+                title: "\u2694\uFE0F Master Nakhoda",
+                body: "He's stopped thinking in single voyages. Now it's a season's worth of runs, and a name that reaches ports he's never personally sailed to."
+            },
+            "Jong-Owner": {
+                title: "\u{1F6E5}\uFE0F Jong-Owner",
+                body: "He has hauled the biggest cargo hull in the known world — wealth and prestige, real and visible. But still one hull, still one bad storm or raid from losing everything. Owning a jong proves he can carry a fortune. It does not yet prove he's a power."
+            }
+        };
+        function checkRankUp(){
+            const current = rankName();
+            if (current === game.lastRankSeen) return;
+            game.lastRankSeen = current;
+            const flavor = RANK_FLAVOR[current];
+            if (flavor) queueEventOverlay(flavor.title, flavor.body + `<br><br><i>Day ${game.day} \u00b7 ${SHIP_TIERS[game.tier].n} \u00b7 Rep ${game.rep}</i>`);
+            saveGame();
         }
         // ============================================================
 
@@ -793,7 +854,10 @@
                 '<button id="nk-event-ok" style="' + NK_BTN + 'margin-top:20px;background:#fbbf24;color:#1e293b;font-weight:800;font-size:15px;padding:12px 34px;">Continue</button>' +
                 '</div>';
             document.body.appendChild(ev);
-            document.getElementById('nk-event-ok').addEventListener('click', () => { ev.style.display = 'none'; });
+            document.getElementById('nk-event-ok').addEventListener('click', () => {
+                ev.style.display = 'none';
+                if (overlayQueue.length) { const next = overlayQueue.shift(); setTimeout(() => showEventOverlay(next[0], next[1]), 350); }
+            });
         }
 
         function showEventOverlay(title, bodyHtml){
@@ -808,7 +872,11 @@
             document.getElementById('nk-port-name').innerText = "\u2693 " + dock.name;
             const prod = dock.produces.map(i=>GOODS[i].n).join(", ");
             const dem = dock.demands.map(i=>GOODS[i].n).join(", ");
-            document.getElementById('nk-port-sub').innerHTML = `Produces: <span style="color:#34d399;">${prod}</span> \u00b7 Craves: <span style="color:#f59e0b;">${dem}</span>`;
+            const fKey = factionForPort(dock.name); const faction = fKey ? FACTIONS[fKey] : null;
+            const standingHtml = faction
+                ? `<br><span style="color:${faction.color};">${faction.name}</span> standing: <b style="color:${getFactionRep(fKey)>=20?'#34d399':getFactionRep(fKey)<=-20?'#fb7185':'#94a3b8'};">${getFactionRep(fKey)>0?'+':''}${getFactionRep(fKey)}</b>`
+                : `<br><span style="color:#94a3b8;">Independent port \u2014 no tariff, no favor</span>`;
+            document.getElementById('nk-port-sub').innerHTML = `Produces: <span style="color:#34d399;">${prod}</span> \u00b7 Craves: <span style="color:#f59e0b;">${dem}</span>${standingHtml}`;
             portTab = 'market';
             renderPortTabs(); renderPortBody(dock);
             document.getElementById('nk-port-panel').style.display = 'flex';
@@ -881,7 +949,7 @@
                     `<button data-act="tier" style="${NK_BTN}width:100%;background:#fbbf24;color:#1e293b;font-weight:800;padding:11px;">Commission \u2014 ${nx.cost} pisis</button></div>`;
             } else {
                 html += `<div style="margin-top:14px;font-size:12.5px;color:#94a3b8;font-style:italic;">You command a jong \u2014 the ceiling of single-hull growth. What remains is not a bigger boat.` +
-                    (game.seaLord ? '' : `<br>Sea Lord requires: <b>${SEA_LORD_GOLD} pisis</b> (${game.gold}) and <b>Rep ${SEA_LORD_REP}</b> (${game.rep}).`) + `</div>`;
+                    (game.seaLord ? '' : `<br>Sea Lord requires: <b>${SEA_LORD_GOLD} pisis</b> (${game.gold}), <b>Rep ${SEA_LORD_REP}</b> (${game.rep}), and a court that has noticed you — some polity's standing at <b>+60</b> or better.`) + `</div>`;
             }
             return html;
         }
@@ -945,6 +1013,8 @@
                 if (margin > 0) { showFloatingText(`+${margin} profit`, shipWrapper.position.x, shipWrapper.position.y + 10); }
                 if (c.qty <= 0) delete game.cargo[g.n];
             }
+            // Fair trade builds goodwill with whoever holds this port — slowly.
+            addFactionRep(factionForPort(dock.name), buying ? 0.3 : 0.5);
             refreshGameHUD(); renderPortBody(dock);
             saveGame(); // a trade is real money — never lose it to a closed tab
         }
@@ -971,7 +1041,7 @@
             const nx = SHIP_TIERS[game.tier + 1]; if (!nx) return;
             if (game.gold < nx.cost) { showToast(`The ${nx.n} costs ${nx.cost} pisis. Keep trading.`, "combat"); return; }
             addGold(-nx.cost); game.tier++; applyShipStats(true); addRep(10);
-            showEventOverlay(`\u26F5 The ${nx.n}`,
+            queueEventOverlay(`\u26F5 The ${nx.n}`,
                 `${nx.desc}<br><br>Hold <b>${nx.hold}</b> \u00b7 Hull <b>${nx.hp}</b> \u00b7 Rank: <b style="color:#fbbf24;">${rankName()}</b><br><br><i>The boy on the jetty would not recognize the man at this stern.</i>`);
             renderPortBody(portOpen); refreshGameHUD(); saveGame();
         }
@@ -999,6 +1069,7 @@
             const have = game.cargo[c.good]; if (!have || have.qty < c.qty) return;
             have.qty -= c.qty; if (have.qty <= 0) delete game.cargo[c.good];
             addGold(c.reward); addRep(6); game.stats.deliveries++;
+            addFactionRep(factionForPort(dock.name), 8);
             game.contract = null; currentDestination = null;
             showToast(`Charter delivered! ${c.reward} pisis, and ${dock.name} remembers your name. (+6 Rep)`, "delivery");
             refreshGameHUD(); renderPortBody(dock); saveGame();
@@ -1019,11 +1090,38 @@
         }
 
         // ---------- Per-frame game logic ----------
+        // Crew wages by hull tier (Kelulus sails free-crewed; a Jong\'s
+        // company doesn\'t). Rice and Betel & Areca are fresh goods \u2014 held
+        // too long, they rot; the spices don\'t.
+        const CREW_WAGES = [0, 15, 35, 60, 100];
+        const PERISHABLE_GOODS_IDX = [0, 2];
+        const SPOILAGE_RATE = 0.08;
+
         function nakhodaFrame(){
             // Day cycle: timeOfDay.cycle wraps 0..1
             if (timeOfDay.cycle < lastCycle - 0.5) {
                 game.day++;
-                showToast(`\u{1F305} Day ${game.day} \u2014 prices shift with the tide.`, "info");
+                let dayMsg = `\u{1F305} Day ${game.day}`;
+
+                const wage = CREW_WAGES[game.tier];
+                if (wage > 0) {
+                    if (game.gold >= wage) { game.gold -= wage; dayMsg += ` \u00b7 \u2212${wage} pisis wages`; }
+                    else { game.gold = 0; addRep(-2); dayMsg += ` \u00b7 wages unpaid, the crew grumbles (\u22122 Rep)`; }
+                }
+
+                const spoiled = [];
+                PERISHABLE_GOODS_IDX.forEach(gi => {
+                    const g = GOODS[gi]; const c = game.cargo[g.n];
+                    if (c && c.qty > 0) {
+                        const lost = Math.min(c.qty, Math.ceil(c.qty * SPOILAGE_RATE));
+                        c.qty -= lost;
+                        if (c.qty <= 0) delete game.cargo[g.n];
+                        if (lost > 0) spoiled.push(`${lost} ${g.n}`);
+                    }
+                });
+                if (spoiled.length) dayMsg += ` \u00b7 spoiled: ${spoiled.join(', ')}`;
+
+                showToast(dayMsg + " \u2014 prices shift with the tide.", "info");
                 if (game.contract && game.day > game.contract.expiresDay) {
                     showToast(`Charter to ${docks[game.contract.destIdx].name} expired. (\u22125 Rep)`, "combat");
                     game.contract = null; currentDestination = null; addRep(-5);
@@ -1951,15 +2049,24 @@
             for(let i=0; i<4; i++) spawnSingleAI('pirate');
         }
 
+        // Pirates get bolder as a nakhoda climbs — a Kelulus trader and a
+        // Jong flagship don't draw the same interest from the Sulu raiders.
+        function threatMultiplier(){
+            return 1 + game.tier * 0.22 + Math.min(game.stats.piratesSunk * 0.04, 1.2);
+        }
+
         function spawnSingleAI(type) {
             const aiWrapper = new THREE.Group(); let sailColor = type === 'pirate' ? COLORS.pirateSail : COLORS.merchantSail; let hasWeapons = type === 'pirate';
             const model = buildShipModel(sailColor, hasWeapons); aiWrapper.add(model.group);
             let spawnPt = getSafeSpawnPoint(); aiWrapper.position.set(spawnPt.x, 0, spawnPt.z); scene.add(aiWrapper);
             let dockTarget = docks[Math.floor(Math.random() * docks.length)];
-            
+            const dmgMult = type === 'pirate' ? threatMultiplier() : 1;
+
             aiShips.push({
-                type: type, wrapper: aiWrapper, shipMesh: model.group, mainSail: model.mainSail, foreSail: model.foreSail, shipModelData: model, 
-                active: true, target: dockTarget, stuckTimer: 0, weaponCooldown: 0, hp: type === 'pirate' ? 400 : 300, maxHp: type === 'pirate' ? 400 : 300,
+                type: type, wrapper: aiWrapper, shipMesh: model.group, mainSail: model.mainSail, foreSail: model.foreSail, shipModelData: model,
+                active: true, target: dockTarget, stuckTimer: 0, weaponCooldown: 0,
+                hp: Math.round((type === 'pirate' ? 400 : 300) * dmgMult), maxHp: Math.round((type === 'pirate' ? 400 : 300) * dmgMult),
+                dmgMult: dmgMult, homeFaction: (typeof factionForPort === 'function') ? factionForPort(dockTarget.name) : null,
                 params: {
                     speed: 0, maxSpeed: type === 'pirate' ? (0.45 + Math.random()*0.1) : (0.35 + Math.random()*0.15),
                     accel: 0.005, friction: 0.98, heading: Math.random() * Math.PI * 2, turnSpeed: type === 'pirate' ? 0.04 : (0.02 + Math.random()*0.015),
@@ -2059,7 +2166,7 @@
             sideCannons.forEach((c) => {
                 setTimeout(() => {
                     let aimPos = targetPos.clone(); aimPos.x += (Math.random() - 0.5) * 15; aimPos.z += (Math.random() - 0.5) * 15;
-                    shootProjectile(c.gun, ai.wrapper, aimPos, projectileSpeed, 0.3, true, CANNON_DAMAGE * 0.8, true); 
+                    shootProjectile(c.gun, ai.wrapper, aimPos, projectileSpeed, 0.3, true, CANNON_DAMAGE * 0.8 * (ai.dmgMult || 1), true);
                 }, cannonsFired * 120 + Math.random()*80);
                 cannonsFired++;
             });
@@ -2322,14 +2429,21 @@
                                     if (ai.type === 'pirate') {
                                         const reward = 300 + Math.floor(Math.random()*400);
                                         game.stats.piratesSunk++; addGold(reward); addRep(5);
+                                        addFactionRep(ai.homeFaction, 3);
                                         showToast(`Pirate penjajap sunk! Salvaged ${reward} pisis. Your name grows. (+5 Rep)`, "kill");
                                     } else {
                                         const reward = 150 + Math.floor(Math.random()*250);
                                         game.stats.merchantsSunk++; addGold(reward); addRep(-8);
+                                        addFactionRep(ai.homeFaction, -20);
+                                        Object.keys(FACTIONS).forEach(k => { if (k !== ai.homeFaction) addFactionRep(k, -3); });
                                         showToast(`Merchant hull plundered: ${reward} pisis. Word of piracy spreads\u2026 (\u22128 Rep)`, "kill");
                                     }
                                     refreshGameHUD();
-                                    setTimeout(() => { let spawnPt = getSafeSpawnPoint(); ai.wrapper.position.set(spawnPt.x, 0, spawnPt.z); ai.hp = ai.maxHp; ai.active = true; scene.add(ai.wrapper); }, 10000);
+                                    setTimeout(() => {
+                                        let spawnPt = getSafeSpawnPoint(); ai.wrapper.position.set(spawnPt.x, 0, spawnPt.z);
+                                        if (ai.type === 'pirate') { ai.dmgMult = threatMultiplier(); ai.maxHp = Math.round(400 * ai.dmgMult); }
+                                        ai.hp = ai.maxHp; ai.active = true; scene.add(ai.wrapper);
+                                    }, 10000);
                                 }
                                 break;
                             }
