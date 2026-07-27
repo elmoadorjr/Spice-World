@@ -36,6 +36,7 @@
     display:flex;
     flex-direction:column;
     height:100vh;
+    height:100dvh;
     max-width: 1400px;
     margin:0 auto;
   }
@@ -106,6 +107,7 @@
   }
   .map-wrap:fullscreen #map{
     height: 100vh;
+    height: 100dvh;
   }
   .leaflet-control-attribution{
     background: rgba(232,217,181,0.85) !important;
@@ -979,7 +981,7 @@
       padding: 0 16px 12px;
     }
     .tabs::-webkit-scrollbar{ display:none; }
-    .tab-btn{ padding: 7px 14px; font-size: 11px; }
+    .tab-btn{ padding: 7px 14px; font-size: 11px; min-height: 40px; }
     .tabs-wrap::before, .tabs-wrap::after{
       content:'';
       position:absolute;
@@ -1005,6 +1007,7 @@
   .doc-scroll{
     flex:1;
     overflow-y:auto;
+    overflow-x:auto;
     margin: 0 12px 12px;
     padding: 32px clamp(16px, 5vw, 56px);
     background: var(--parchment-light);
@@ -1294,6 +1297,10 @@
   .conn-edge-hit{ fill:none; stroke: transparent; stroke-width:12; cursor:pointer; }
   .conn-ext-dot{ fill: var(--parchment-dark); stroke: var(--ink); stroke-width:1; cursor:pointer; }
   .conn-ext-label{ font-family:'EB Garamond', serif; font-style:italic; font-size:8.5px; fill: var(--ink); opacity:0.8; cursor:pointer; }
+  /* Invisible larger hit areas around the small node/ext dots — same
+     technique as .conn-edge-hit above, sized for touch rather than the
+     mouse-precision the visible dots alone were drawn for. */
+  .conn-node-dot-hit, .conn-ext-dot-hit{ fill: transparent; cursor:pointer; }
 
   .conn-legend{ display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:12px; padding-top:12px; border-top: 1px solid var(--parchment-dark); font-size:12px; }
   .conn-legend-item{ display:flex; align-items:center; gap:7px; }
@@ -1437,10 +1444,13 @@
     .reset-view-btn{ font-size: 10px; padding: 5px 8px; }
     .doc-scroll{ padding: 22px 16px; }
     .doc-content{ font-size: 15px; }
-    .tab-btn{ padding: 7px 12px; font-size: 10.5px; }
+    .tab-btn{ padding: 7px 12px; font-size: 10.5px; min-height: 40px; }
     .conflict-table{ font-size: 12.5px; }
-    .conn-node-label{ font-size: 7.5px; }
-    .conn-ext-label{ font-size: 7px; }
+    /* These shrink the SVG diagram's own labels further on top of the
+       already-scaled-down viewBox — bigger, not smaller, is what makes
+       them legible on a phone. */
+    .conn-node-label{ font-size: 11px; }
+    .conn-ext-label{ font-size: 10px; }
 
     /* Collapse the legend behind a tappable summary so the map keeps most
        of the screen; the disclaimer/legend rows are one tap away instead
@@ -1454,6 +1464,26 @@
      constraint there is height, not width. */
   @media (max-height: 700px){
     .legend-summary{ display: block; }
+  }
+
+  /* ============ TOUCH TARGETS: map controls ============
+     A new breakpoint (767px, matching the sim's own mobile breakpoint —
+     see MEDIUM #6 in the mobile audit) rather than folding into the
+     640px block above: these are about touch-target *size*, not the
+     640px block's layout reflow, and deserve their own home. Leaflet's
+     stock zoom/fullscreen controls and the custom reset/layer-toggle/
+     jump-to controls are all comfortably under the ~44px guideline. */
+  @media (max-width: 767px){
+    .leaflet-control-zoom a, .leaflet-control-fullscreen a{
+      width: 40px !important;
+      height: 40px !important;
+      line-height: 38px !important;
+      font-size: 18px !important;
+    }
+    .reset-view-btn{ padding: 10px 10px; font-size: 12px; min-height: 40px; }
+    .layers-panel-toggle{ padding: 10px 12px; font-size: 12px; min-height: 40px; }
+    .layer-toggle-btn{ padding: 11px 12px; font-size: 12px; min-height: 40px; }
+    .location-jump-select{ max-width: 140px; padding: 8px 8px; font-size: 12px; min-height: 40px; }
   }
 
 /* ============ VOYAGE LAYER (live sim state on the chart) ============ */

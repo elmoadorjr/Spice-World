@@ -390,6 +390,7 @@ function renderConnDiagram(){
         <line class="conn-edge-hit" x1="${p1.x}" y1="${p1.y}" x2="${ex}" y2="${ey}"></line>
         <line class="conn-edge-line" x1="${p1.x}" y1="${p1.y}" x2="${ex}" y2="${ey}"
           stroke="${meta.color}" stroke-width="1.75" stroke-dasharray="${meta.dash}" opacity="0.7"></line>
+        <circle class="conn-ext-dot-hit" data-idx="${ci}" cx="${ex}" cy="${ey}" r="10"></circle>
         <circle class="conn-ext-dot" data-idx="${ci}" cx="${ex}" cy="${ey}" r="4"></circle>
         <text class="conn-ext-label" data-idx="${ci}" x="${ex + (anchor === 'start' ? 8 : -8)}" y="${ey + 3}" text-anchor="${anchor}">${conn.bLabel}</text>
       </g>`);
@@ -402,6 +403,7 @@ function renderConnDiagram(){
     const anchor = Math.cos(p.angle) >= 0 ? 'start' : 'end';
     const lx = p.x + (anchor === 'start' ? 10 : -10);
     svgParts.push(`<g class="conn-node" data-name="${c.name}">
+      <circle class="conn-node-dot-hit" cx="${p.x}" cy="${p.y}" r="12"></circle>
       <circle class="conn-node-dot" cx="${p.x}" cy="${p.y}" r="6"></circle>
       <text class="conn-node-label" x="${lx}" y="${p.y + 3}" text-anchor="${anchor}">${c.name}</text>
     </g>`);
@@ -415,7 +417,7 @@ function renderConnDiagram(){
       renderConnDetail(conn);
     });
   });
-  connSvg.querySelectorAll('.conn-ext-dot, .conn-ext-label').forEach(el => {
+  connSvg.querySelectorAll('.conn-ext-dot, .conn-ext-dot-hit, .conn-ext-label').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       const conn = connections[parseInt(el.dataset.idx, 10)];
