@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nakhoda — Voyage of the Eastern Seas, 1500 AD</title>
     <link rel="stylesheet" href="vendor/tailwind.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -33,6 +33,13 @@
             cursor: crosshair; 
         }
 
+        #canvas-container, #canvas-container canvas {
+            /* The 3D view never calls preventDefault() on touch events (it
+               relies on this instead) — so with pinch-zoom re-enabled on
+               the rest of the page, the canvas must opt back out to keep
+               sailing/aiming/firing exactly as before. */
+            touch-action: none;
+        }
         #canvas-container {
             width: 100vw;
             height: 100vh;
@@ -272,7 +279,49 @@
                 font-size: 12px !important;
                 padding: 7px 14px !important;
             }
-            #minimap-container { transform: scale(0.85); transform-origin: top right; }
+            /* Clears the D-pad/fire-button band beneath it */
+            #nk-dock-prompt { bottom: 190px !important; }
+            .nk-market-row, .nk-upg-row { flex-wrap: wrap; }
+            .nk-market-btn, .nk-upg-btn { min-height: 40px; font-size: 13px; padding: 10px 12px; }
+            .nk-market-tag { font-size: 11px !important; }
+            .nk-market-detail { font-size: 12px !important; }
+        }
+
+        /* Touch devices apply touch-action:none to <body> so the page never
+           rubber-bands during sailing; the Market/Shipyard/Tavern list and
+           the event overlay are the two places a player actually needs to
+           scroll, so they opt back into vertical panning specifically. */
+        #nk-port-body, #nk-event-overlay > div { touch-action: pan-y; }
+
+        /* ============ LANDSCAPE PHONES: many exceed 768px CSS width in
+           landscape (e.g. ~915x412), so the rules above never fire and the
+           player loses the on-screen controls entirely while the HUD
+           reverts to its full desktop width. Key off viewport HEIGHT and
+           orientation instead, layered on top of the portrait fix. */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #mobile-controls { display: flex !important; }
+            #keyboard-hint-panel { display: none !important; }
+            #hud-top-row { margin-top: 8px !important; }
+            #game-hud {
+                width: 150px !important;
+                padding: 8px !important;
+            }
+            #game-hud .mb-4 { margin-bottom: 4px !important; }
+            #game-hud .mb-5 { margin-bottom: 6px !important; }
+            #game-hud #profit-status { font-size: 18px !important; }
+            #hud-weather-compass { display: none !important; }
+            #cargo-status { padding: 6px !important; gap: 6px !important; }
+            #sailing-hud { display: none !important; }
+            #chart-room-btn {
+                top: 4px !important;
+                font-size: 11px !important;
+                padding: 5px 10px !important;
+            }
+            #minimap-container { transform: scale(0.65); transform-origin: top right; }
+            .control-btn { width: 48px !important; height: 48px !important; }
+            #btn-fire { width: 56px !important; height: 56px !important; }
+            /* Clears the shrunk D-pad/fire-button band beneath it */
+            #nk-dock-prompt { bottom: 92px !important; font-size: 13px !important; padding: 9px 18px !important; }
         }
     </style>
 </head>
@@ -342,7 +391,7 @@
 
                 <div class="mb-5">
                     <div class="flex justify-between font-semibold text-xs mb-1">
-                        <span class="text-slate-400">Cannons (Click to Fire)</span>
+                        <span class="text-slate-400">Cannons <span class="hidden md:inline">(Click to Fire)</span></span>
                         <span id="weapon-status" class="text-emerald-400">Ready</span>
                     </div>
                     <div class="hud-bar-bg h-2">
@@ -395,7 +444,7 @@
                 </button>
             </div>
 
-            <div class="glass-panel p-4 rounded-2xl text-sm flex flex-col gap-3 pointer-events-auto ml-auto hidden md:flex border-l-4 border-l-rose-500">
+            <div id="keyboard-hint-panel" class="glass-panel p-4 rounded-2xl text-sm flex flex-col gap-3 pointer-events-auto ml-auto hidden md:flex border-l-4 border-l-rose-500">
                 <div class="flex items-center gap-3">
                     <div class="flex gap-1">
                         <kbd class="bg-slate-800 text-slate-300 font-mono px-2 py-1 rounded-md border-b-2 border-slate-900 shadow-sm">A</kbd>
@@ -847,7 +896,7 @@
                 "background:rgba(2,6,23,0.82);backdrop-filter:blur(8px);pointer-events:auto;font-family:'Outfit',sans-serif;");
             ev.id = 'nk-event-overlay';
             ev.innerHTML =
-                '<div style="width:min(560px,92vw);background:rgba(15,23,42,0.95);border:1px solid rgba(251,191,36,0.45);' +
+                '<div style="width:min(560px,92vw);max-height:88vh;overflow-y:auto;background:rgba(15,23,42,0.95);border:1px solid rgba(251,191,36,0.45);' +
                 'border-radius:22px;padding:26px 24px;box-shadow:0 20px 80px rgba(0,0,0,0.8);text-align:center;">' +
                 '<div id="nk-event-title" style="font-size:24px;font-weight:800;color:#fbbf24;margin-bottom:14px;"></div>' +
                 '<div id="nk-event-body" style="color:#e2e8f0;font-size:14.5px;line-height:1.65;text-align:left;"></div>' +
@@ -907,14 +956,14 @@
             let rows = GOODS.map((g, gi) => {
                 const buy = priceAt(dock.idx, gi, 'buy'); const sell = priceAt(dock.idx, gi, 'sell');
                 const own = (game.cargo[g.n] || {qty:0}).qty;
-                const tag = dock.produces.includes(gi) ? ' <span style="color:#34d399;font-size:10px;">CHEAP</span>'
-                          : dock.demands.includes(gi) ? ' <span style="color:#f59e0b;font-size:10px;">CRAVED</span>' : '';
-                return `<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.05);">` +
-                    `<div style="flex:1;min-width:0;"><b>${g.n}</b>${tag}<div style="font-size:11px;color:#94a3b8;">Buy ${buy} \u00b7 Sell ${sell}${own?` \u00b7 Hold: ${own}`:''}</div></div>` +
-                    `<button data-act="buy" data-g="${gi}" data-q="1" style="${NK_BTN}background:rgba(52,211,153,0.15);color:#34d399;font-weight:700;font-size:12px;padding:8px 10px;">+1</button>` +
-                    `<button data-act="buy" data-g="${gi}" data-q="5" style="${NK_BTN}background:rgba(52,211,153,0.15);color:#34d399;font-weight:700;font-size:12px;padding:8px 10px;">+5</button>` +
-                    `<button data-act="sell" data-g="${gi}" data-q="1" style="${NK_BTN}background:rgba(244,63,94,0.15);color:#fb7185;font-weight:700;font-size:12px;padding:8px 10px;">\u22121</button>` +
-                    `<button data-act="sellall" data-g="${gi}" style="${NK_BTN}background:rgba(244,63,94,0.25);color:#fb7185;font-weight:700;font-size:12px;padding:8px 10px;">All</button>` +
+                const tag = dock.produces.includes(gi) ? ' <span class="nk-market-tag" style="color:#34d399;font-size:10px;">CHEAP</span>'
+                          : dock.demands.includes(gi) ? ' <span class="nk-market-tag" style="color:#f59e0b;font-size:10px;">CRAVED</span>' : '';
+                return `<div class="nk-market-row" style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,0.05);">` +
+                    `<div style="flex:1;min-width:0;"><b>${g.n}</b>${tag}<div class="nk-market-detail" style="font-size:11px;color:#94a3b8;">Buy ${buy} \u00b7 Sell ${sell}${own?` \u00b7 Hold: ${own}`:''}</div></div>` +
+                    `<button class="nk-market-btn" data-act="buy" data-g="${gi}" data-q="1" style="${NK_BTN}background:rgba(52,211,153,0.15);color:#34d399;font-weight:700;font-size:12px;padding:8px 10px;">+1</button>` +
+                    `<button class="nk-market-btn" data-act="buy" data-g="${gi}" data-q="5" style="${NK_BTN}background:rgba(52,211,153,0.15);color:#34d399;font-weight:700;font-size:12px;padding:8px 10px;">+5</button>` +
+                    `<button class="nk-market-btn" data-act="sell" data-g="${gi}" data-q="1" style="${NK_BTN}background:rgba(244,63,94,0.15);color:#fb7185;font-weight:700;font-size:12px;padding:8px 10px;">\u22121</button>` +
+                    `<button class="nk-market-btn" data-act="sellall" data-g="${gi}" style="${NK_BTN}background:rgba(244,63,94,0.25);color:#fb7185;font-weight:700;font-size:12px;padding:8px 10px;">All</button>` +
                     `</div>`;
             }).join('');
             return `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;color:#cbd5e1;">` +
@@ -937,9 +986,9 @@
             html += UPG.map(([k,label,fx,base]) => {
                 const lvl = game.upg[k]; const cost = base * (lvl+1);
                 const maxed = lvl >= 5;
-                return `<div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid rgba(255,255,255,0.05);">` +
+                return `<div class="nk-upg-row" style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid rgba(255,255,255,0.05);">` +
                     `<div style="flex:1;"><b>${label}</b> <span style="color:#94a3b8;font-size:11px;">Lv ${lvl}/5 \u00b7 ${fx}</span></div>` +
-                    `<button data-act="upg" data-k="${k}" style="${NK_BTN}background:rgba(251,191,36,0.15);color:#fbbf24;font-weight:700;font-size:12px;padding:8px 12px;" ${maxed?'disabled':''}>` +
+                    `<button class="nk-upg-btn" data-act="upg" data-k="${k}" style="${NK_BTN}background:rgba(251,191,36,0.15);color:#fbbf24;font-weight:700;font-size:12px;padding:8px 12px;" ${maxed?'disabled':''}>` +
                     (maxed ? 'MAX' : `${cost} \u{1F4B0}`) + `</button></div>`;
             }).join('');
             if (game.tier < SHIP_TIERS.length - 1) {

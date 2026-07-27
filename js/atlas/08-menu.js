@@ -13,6 +13,13 @@ const SERIES_BOOKS = [
 
 let selectedBook = CURRENT_BOOK;
 
+// Grid is 5 columns wide (3 on narrow viewports per the media query); kept
+// live via a single resize listener (not recomputed per-render) so arrow-key
+// nav still steps by the right column count if the menu is left open across
+// a device rotation, same pattern as the legend's resize listener.
+let bookGridColumns = window.innerWidth <= 640 ? 3 : 5;
+window.addEventListener('resize', () => { bookGridColumns = window.innerWidth <= 640 ? 3 : 5; });
+
 const menuOverlay = document.getElementById('main-menu-overlay');
 const menuBooksEl = document.getElementById('main-menu-books');
 const enterBtn = document.getElementById('main-menu-enter-btn');
@@ -72,18 +79,17 @@ function renderMainMenuBooks(){
     });
   });
 
-  // Grid is 5 columns wide (3 on narrow viewports per the media query), so
-  // left/right step by one and up/down step by the current column count;
+  // left/right step by one and up/down step by the current column count
+  // (bookGridColumns, kept live by a resize listener at module scope);
   // Enter activates the Enter button directly from the grid.
-  const columns = window.innerWidth <= 640 ? 3 : 5;
   menuBooksEl.addEventListener('keydown', (e) => {
     const currentIdx = bookBtns.findIndex(b => b === document.activeElement);
     if (currentIdx === -1) return;
     let nextIdx = null;
     if (e.key === 'ArrowRight') nextIdx = currentIdx + 1;
     else if (e.key === 'ArrowLeft') nextIdx = currentIdx - 1;
-    else if (e.key === 'ArrowDown') nextIdx = currentIdx + columns;
-    else if (e.key === 'ArrowUp') nextIdx = currentIdx - columns;
+    else if (e.key === 'ArrowDown') nextIdx = currentIdx + bookGridColumns;
+    else if (e.key === 'ArrowUp') nextIdx = currentIdx - bookGridColumns;
     else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       bookBtns[currentIdx].click();
