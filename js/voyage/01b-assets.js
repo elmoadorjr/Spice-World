@@ -1,14 +1,14 @@
 // ============ NAKHODA: MODELS ============
 // Hand-modeled CC0 assets (Kenney's Nature Kit and Pirate Kit, see
 // assets/models/*/License.txt) for trees, palms, rocks, houses, docks and
-// ships. Static props are baked into one geometry each so thousands can be
-// instanced; ships stay as node trees so their sails can trim and furl.
+// townsfolk. Static props are baked into one geometry each so thousands can
+// be instanced. Ships are built in code (js/voyage/06-ships.js).
 // If anything fails to load, every module falls back to its own geometry.
 
 NK.assets = (function () {
   const NATURE = ['tree_detailed', 'tree_oak', 'tree_fat', 'tree_default', 'tree_plateau', 'tree_tall', 'tree_palmTall', 'tree_palmDetailedTall',
     'tree_palmBend', 'tree_palmShort', 'plant_bushLarge', 'plant_bushDetailed', 'plant_bush', 'rock_largeA', 'rock_largeB', 'rock_largeC', 'rock_tallA', 'rock_tallB'];
-  const PIRATE = ['ship-small', 'ship-medium', 'ship-large', 'ship-pirate-small', 'ship-pirate-medium', 'ship-pirate-large', 'palm-detailed-straight',
+  const PIRATE = ['palm-detailed-straight',
     'palm-detailed-bend', 'palm-straight', 'palm-bend', 'structure', 'structure-roof', 'structure-platform', 'structure-platform-dock',
     'structure-platform-dock-small', 'rocks-a', 'rocks-b', 'rocks-c', 'rocks-sand-a', 'rocks-sand-b', 'barrel', 'crate', 'boat-row-small'];
   const PEOPLE = ['male-a', 'male-b', 'male-d', 'male-e', 'male-f', 'female-a', 'female-b', 'female-c', 'female-d', 'female-e', 'female-f'];
