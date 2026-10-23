@@ -201,8 +201,7 @@ NK.ui = (function () {
       $('h-guns').className = 'guns' + (guns ? ' show' : '');
       if (NK.T > 75) $('h-keys').classList.add('faded');
       $('fair').style.display = NK.timeScale > 1 ? 'block' : 'none';
-      prompt();
-      bannerCheck();
+      if (!NK.shore.active) { prompt(); bannerCheck(); }
     }
     $('h-speed').textContent = (Math.abs(P.speed) * 0.36).toFixed(1);
     trimGauge(P);
@@ -279,7 +278,7 @@ NK.ui = (function () {
     hold('tc-right', () => touch.right = true, () => touch.right = false);
     hold('tc-in', () => touch.sheetIn = true, () => touch.sheetIn = false);
     hold('tc-out', () => touch.sheetOut = true, () => touch.sheetOut = false);
-    hold('tc-furl', () => NK.player.hoist());
+    hold('tc-furl', () => NK.shore.active ? NK.shore.interact() : NK.player.hoist());
     hold('tc-fl', () => NK.fleet.fire(NK.player, 'left')); hold('tc-fr', () => NK.fleet.fire(NK.player, 'right'));
   }
 
@@ -300,6 +299,6 @@ NK.ui = (function () {
   return {
     init, update, showModal, closeModal, story, title, toast, banner, interact, toggleFairWinds, togglePause, exitToRoom,
     openChart: () => modalKind === 'chart' ? closeModal() : (!modalKind && NK.chart.open()),
-    modal: () => modalKind, docked: () => !!portOpen, get port() { return portOpen; }, touch
+    modal: () => modalKind, docked: () => !!portOpen || !!(NK.shore && NK.shore.active), get port() { return portOpen; }, touch
   };
 })();

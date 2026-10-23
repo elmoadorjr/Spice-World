@@ -64,6 +64,8 @@ NK.player = (function () {
       if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase(); keys[k] = true;
       if (NK.ui && NK.ui.modal()) { if (k === 'escape' || k === 'm') NK.ui.closeModal(); return; }
+      // Ashore, the helm keys walk instead (js/voyage/16-shore.js).
+      if (NK.shore && NK.shore.active) { if (k === 'm') NK.ui.openChart(); if (k === 'escape') NK.ui.togglePause(); return; }
       if (k === ' ') { e.preventDefault(); hoist(); }
       if (k === 'x') reef();
       if (k === 'g') toggleAssist();
@@ -214,7 +216,7 @@ NK.player = (function () {
 
     P.reload.left = Math.max(0, P.reload.left - dt); P.reload.right = Math.max(0, P.reload.right - dt);
     if (NK.T - (P.wakeT || 0) > 0.05 && P.speed > 3) { P.wakeT = NK.T; NK.fleet.wake(P.pos, P.heading, P.speed, P.ship.L, P.ship.B); }
-    updateCamera(dt);
+    if (!(NK.shore && NK.shore.active)) updateCamera(dt);
   }
 
   function pilot(w, dt) {

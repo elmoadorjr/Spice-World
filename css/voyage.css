@@ -255,3 +255,9 @@ table.ledger { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .chart-wrap { margin: 0 8px 8px; }
   .chart-bar { padding: 14px 14px 8px; }
 }
+
+/* ---------- Ashore ---------- */
+.ashore .hud-helm, .ashore .hud-ship, .ashore .hud-compass, .ashore .hud-keys, .ashore #tc-fl, .ashore #tc-fr { display: none !important; }
+.label3d.npc b { font-size: 16px; }
+.label3d.npc span { font-size: 9px; }
+.sheet.talk .body p:first-child { margin-top: 0; }

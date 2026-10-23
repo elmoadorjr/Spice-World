@@ -11,7 +11,9 @@ NK.assets = (function () {
   const PIRATE = ['ship-small', 'ship-medium', 'ship-large', 'ship-pirate-small', 'ship-pirate-medium', 'ship-pirate-large', 'palm-detailed-straight',
     'palm-detailed-bend', 'palm-straight', 'palm-bend', 'structure', 'structure-roof', 'structure-platform', 'structure-platform-dock',
     'structure-platform-dock-small', 'rocks-a', 'rocks-b', 'rocks-c', 'rocks-sand-a', 'rocks-sand-b', 'barrel', 'crate', 'boat-row-small'];
-  const scenes = {}, baked = {};
+  const PEOPLE = ['male-a', 'male-b', 'male-d', 'male-e', 'male-f', 'female-a', 'female-b', 'female-c', 'female-d', 'female-e', 'female-f'];
+  const scenes = {}, baked = {}, people = {};
+  let peopleOk = false;
   let ok = false;
 
   // The game renders in display space (no sRGB output pass), so glTF's
@@ -34,8 +36,14 @@ NK.assets = (function () {
       g.scene.traverse(o => { if (o.isMesh) { fixMaterial(o.material); o.castShadow = true; o.receiveShadow = true; } });
       scenes[name] = g.scene; res(true);
     }, undefined, () => res(false)));
+    const person = name => new Promise(res => loader.load(`assets/models/people/character-${name}.glb`, g => {
+      g.scene.traverse(o => { if (o.isMesh) { fixMaterial(o.material); o.castShadow = true; o.frustumCulled = false; } });
+      people[name] = { scene: g.scene, clips: g.animations }; res(true);
+    }, undefined, () => res(false)));
+    const extra = [one('market', 'display-fruit')].concat(PEOPLE.map(person));
     return Promise.all(NATURE.map(n => one('nature', n)).concat(PIRATE.map(n => one('pirate', n))))
-      .then(r => { ok = r.every(Boolean); return ok; });
+      .then(r => { ok = r.every(Boolean); return Promise.all(extra); })
+      .then(r => { peopleOk = ok && r.every(Boolean) && !!THREE.SkeletonUtils; return ok; });
   }
 
   // Flatten a model into one geometry: position, normal, uv and a color
@@ -90,9 +98,18 @@ NK.assets = (function () {
     return (mats[key] = m);
   }
 
+  // A fresh, independently animated copy of a character.
+  function person(name) {
+    const p = people[name]; if (!p) return null;
+    const scene = THREE.SkeletonUtils.clone(p.scene);
+    const mixer = new THREE.AnimationMixer(scene), actions = {};
+    p.clips.forEach(c => { actions[c.name] = mixer.clipAction(c); });
+    return { scene, mixer, actions };
+  }
+
   return {
-    load, bake, material,
-    get ok() { return ok; },
+    load, bake, material, person,
+    get ok() { return ok; }, get peopleOk() { return peopleOk; },
     scene: name => scenes[name] || null
   };
 })();

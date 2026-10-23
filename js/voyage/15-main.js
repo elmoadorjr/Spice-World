@@ -33,6 +33,7 @@ NK.main = (function () {
       NK.fleet.init(scene);
       NK.player.init(scene, camera);
       NK.ui.init(camera);
+      NK.shore.init(scene, camera);
       NK.land.update(NK.player.pos, true);
     });
     addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
@@ -94,6 +95,7 @@ NK.main = (function () {
       NK.player.cam.yaw = NK.player.heading + Math.PI + Math.sin(introT * 0.08) * 1.4 + 0.9;
       NK.player.cam.free = true; NK.player.cam.lastInput = NK.T; NK.player.cam.tdist = 95; NK.player.cam.pitch = 0.16;
     }
+    NK.shore.update(gdt);
     NK.game.advance(gdt);
     const P = NK.player.pos;
     NK.sky.update(gdt || dt * 0.0001, NK.game.state.dayFrac, P);

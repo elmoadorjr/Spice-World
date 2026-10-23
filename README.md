@@ -20,6 +20,7 @@ The map and the voyage share one save (`nakhoda-save-v4`): money, cargo, ship, r
 | M | The pilot's chart: click a port to plot a course |
 | R | Give the pilot the helm (he tacks upwind for you) |
 | T | Fair winds: time passes three times as fast |
+| (in Melaka) | Dock, choose *Walk ashore*: WASD to walk, Shift to run, E to talk, walk back to the jetty end to board |
 | Drag / scroll | Look around / zoom |
 
 ## Project layout
@@ -42,7 +43,7 @@ vendor/               Leaflet, Three.js, generated Tailwind — no CDNs, works o
 
 No build step — plain static files.
 
-3D models: [Kenney](https://kenney.nl) Nature Kit and Pirate Kit (CC0, see `assets/models/*/License.txt`).
+3D models: [Kenney](https://kenney.nl) Nature Kit, Pirate Kit, Mini Characters and Mini Market (CC0, see `assets/models/*/License.txt`).
 
 ## Play
 
