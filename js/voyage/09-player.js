@@ -7,6 +7,7 @@
 NK.player = (function () {
   const P = {
     pos: new THREE.Vector3(), heading: 0, speed: 0, sail: 0, sailTarget: 0, rudder: 0,
+    sheet: 0.6, trimEff: 0, trimErr: 0, optSheet: 0.6, heelDeg: 0, assist: false,
     hp: 600, heel: 0, pitch: 0, ship: null, group: null, tier: -1,
     reload: { left: 0, right: 0 }, course: null, autopilot: false, tack: 1, tackTimer: 0, aground: 0
   };
@@ -63,8 +64,9 @@ NK.player = (function () {
       if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
       const k = e.key.toLowerCase(); keys[k] = true;
       if (NK.ui && NK.ui.modal()) { if (k === 'escape' || k === 'm') NK.ui.closeModal(); return; }
-      if (k === 'w' || k === 'arrowup') stepSail(1);
-      if (k === 's' || k === 'arrowdown') stepSail(-1);
+      if (k === ' ') { e.preventDefault(); hoist(); }
+      if (k === 'x') reef();
+      if (k === 'g') toggleAssist();
       if (k === 'q') NK.fleet.fire(P, 'left');
       if (k === 'e') NK.fleet.fire(P, 'right');
       if (k === 'f') NK.ui.interact();
@@ -95,12 +97,20 @@ NK.player = (function () {
     }, { passive: true });
     el.addEventListener('touchend', e => { if (e.touches.length < 2) pinch = null; });
   }
-  function stepSail(d) {
-    const steps = [0, 0.5, 1];
-    let i = steps.findIndex(v => Math.abs(v - P.sailTarget) < 0.01); if (i < 0) i = 0;
-    P.sailTarget = steps[NK.clamp(i + d, 0, 2)];
-    NK.events.emit('sail', P.sailTarget);
+  // Canvas: hoisted (1), reefed (0.5) or furled (0). The sheet is separate.
+  function hoist() { P.sailTarget = P.sailTarget > 0 ? 0 : 1; NK.events.emit('sail', P.sailTarget); }
+  function reef() { P.sailTarget = P.sailTarget === 0.5 ? 1 : 0.5; NK.events.emit('sail', P.sailTarget); }
+  function stepSail(d) { P.sailTarget = NK.clamp(P.sailTarget + d * 0.5, 0, 1); NK.events.emit('sail', P.sailTarget); }
+  function toggleAssist(v) {
+    P.assist = v !== undefined ? v : !P.assist;
+    try { localStorage.setItem('nakhoda-trim', P.assist ? 'assist' : 'manual'); } catch (e) {}
+    NK.events.emit('toast', P.assist ? 'Trim assist on: the crew tends the sheet.' : 'Manual trim: W/S work the sheet.', 'info');
   }
+  try { P.assist = localStorage.getItem('nakhoda-trim') === 'assist'; } catch (e) {}
+
+  // Best sheet angle for a given angle off the wind: about half of it,
+  // close in when hard on the wind, nearly square when running.
+  const optimalSheet = off => NK.clamp((off - 0.38) * 0.52, 0.1, 1.42);
   function toggleAutopilot(force) {
     if (!P.course) { NK.events.emit('toast', 'Plot a course on the chart first (M).', 'info'); return; }
     P.autopilot = force !== undefined ? force : !P.autopilot;
@@ -133,13 +143,36 @@ NK.player = (function () {
     P.offWind = off;
     P.eff = polar(off);
     P.sail += (P.sailTarget - P.sail) * Math.min(1, dt * 0.9);
+
+    // The sheet: W hauls in, S eases out. The pilot and the trim assist tend it themselves.
+    P.optSheet = optimalSheet(off);
+    const sheetIn = keys.w || keys.arrowup || NK.ui.touch.sheetIn, sheetOut = keys.s || keys.arrowdown || NK.ui.touch.sheetOut;
+    if (sheetIn || sheetOut) P.sheet += ((sheetOut ? 1 : 0) - (sheetIn ? 1 : 0)) * dt * 0.75;
+    else if (P.assist || P.autopilot) P.sheet += (P.optSheet - P.sheet) * Math.min(1, dt * 1.6);
+    P.sheet = NK.clamp(P.sheet, 0.05, 1.5);
+    // Too loose and the sail luffs; too tight and it stalls and heels the hull over.
+    P.trimErr = P.sheet - P.optSheet;
+    const q = P.trimErr > 0 ? P.trimErr / 0.3 : P.trimErr / 0.48;
+    P.trimEff = Math.exp(-q * q);
+    if (off < 0.62) P.trimEff = 0;
+
+    // Heel: wind across the beam, pressed by a full and tightly sheeted sail.
+    const beam = Math.abs(Math.sin(off));
+    const press = P.sail * w.strength * beam * (0.45 + 0.55 * P.trimEff) * (1 + Math.max(0, -P.trimErr) * 2.2);
+    const heelMag = NK.clamp(press * 0.34, 0, 0.62);
+    P.heelDeg = heelMag * 57.3;
+    // Past about 18 degrees the hull drags and the rudder fights you.
+    const overHeel = Math.max(0, heelMag - 0.32);
+
     const hullFactor = 0.6 + 0.4 * (P.hp / NK.game.maxHp());
     const max = NK.game.maxSpeed() * hullFactor;
-    const target = docked ? 0 : max * P.eff * P.sail * (0.45 + w.strength * 0.55);
+    const drive = P.eff * P.trimEff * (1 - overHeel * 1.6);
+    const target = docked ? 0 : max * Math.max(0, drive) * P.sail * (0.45 + w.strength * 0.55);
     P.speed += (target - P.speed) * Math.min(1, dt * (target > P.speed ? 0.22 : 0.35));
     if (P.sail < 0.05) P.speed *= Math.pow(0.6, dt);
+    P.overHeel = overHeel;
     const tierTurn = NK.game.TIERS[st.tier].turn;
-    const steerage = 0.25 + 0.75 * NK.clamp(Math.abs(P.speed) / 8, 0, 1);
+    const steerage = (0.25 + 0.75 * NK.clamp(Math.abs(P.speed) / 8, 0, 1)) * (1 - (P.overHeel || 0) * 0.8);
     P.heading += P.rudder * tierTurn * steerage * dt * 0.55;
 
     const [fx, fz] = fwd(P.heading);
@@ -166,7 +199,7 @@ NK.player = (function () {
     P.pos.y = (yb + ys + yl + yr) / 4 - 0.35;
     // Heel to leeward: the wind's push across the beam, held by the sail.
     const side = Math.sin(NK.wrapAngle(hv - from));
-    const heelT = -side * P.sail * w.strength * 0.16 * (off > 0.62 ? 1 : 0.3) + P.rudder * P.speed * 0.004;
+    const heelT = -Math.sign(side) * heelMag * 0.75 + P.rudder * P.speed * 0.004;
     P.heel += (heelT - P.heel) * Math.min(1, dt * 1.5);
     P.group.position.copy(P.pos);
     P.group.rotation.set(0, 0, 0);
@@ -176,8 +209,8 @@ NK.player = (function () {
 
     // Trim: sheet the sails toward the wind's line.
     const rel = NK.wrapAngle(from - hv);
-    const trim = NK.clamp(rel * 0.45, -1.35, 1.35);
-    NK.ships.animateSails(P.ship, -trim, P.sail, P.eff > 0 ? -Math.sign(rel) * (0.4 + P.eff * 0.8) * P.sail : 0, t);
+    const luff = off < 0.62 ? 1 : NK.clamp(P.trimErr / 0.35, 0, 1);
+    NK.ships.animateSails(P.ship, -Math.sign(rel) * P.sheet, P.sail, -Math.sign(rel) * (0.3 + P.trimEff * 1.0) * P.sail * (1 - luff), t, luff);
 
     P.reload.left = Math.max(0, P.reload.left - dt); P.reload.right = Math.max(0, P.reload.right - dt);
     if (NK.T - (P.wakeT || 0) > 0.05 && P.speed > 3) { P.wakeT = NK.T; NK.fleet.wake(P.pos, P.heading, P.speed, P.ship.L, P.ship.B); }
@@ -256,5 +289,5 @@ NK.player = (function () {
     camera.lookAt(P.pos.x, P.pos.y + 6 * scale + d * 0.05, P.pos.z);
   }
 
-  return Object.assign(P, { init, update, damage, setCourse, toggleAutopilot, stepSail, placeAt, pointOfSail, keys, cam, rebuild });
+  return Object.assign(P, { init, update, damage, setCourse, toggleAutopilot, stepSail, hoist, reef, toggleAssist, placeAt, pointOfSail, keys, cam, rebuild });
 })();

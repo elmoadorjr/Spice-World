@@ -363,6 +363,7 @@ NK.fleet = (function () {
 
   return {
     init(sc) { scene = sc; initParticles(); },
+    get reflectHide() { return points ? [points] : []; },
     update, wake, fire: playerFire, threatNear, hostile, clear, danger, spawn,
     get ships() { return ships; }, get loot() { return loot; }
   };

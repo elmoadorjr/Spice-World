@@ -15,9 +15,9 @@ NK.land = (function () {
 
   // ---------- Palette ----------
   const C = {
-    wetSand: new THREE.Color(0xa8946a), sand: new THREE.Color(0xd6bf8c), scrub: new THREE.Color(0x8d9a4c),
-    grass: new THREE.Color(0x5a8a2e), lush: new THREE.Color(0x3d7428), jungle: new THREE.Color(0x214a22),
-    highland: new THREE.Color(0x46612f), rock: new THREE.Color(0x76695a), ash: new THREE.Color(0x4a423d), reef: new THREE.Color(0x5f9e8c)
+    wetSand: new THREE.Color(0xc4ad7c), sand: new THREE.Color(0xf0dcaa), scrub: new THREE.Color(0xa3b45a),
+    grass: new THREE.Color(0x6fa83a), lush: new THREE.Color(0x4c9233), jungle: new THREE.Color(0x2c6a2a),
+    highland: new THREE.Color(0x58783a), rock: new THREE.Color(0x8c7f6d), ash: new THREE.Color(0x4a423d), reef: new THREE.Color(0x5f9e8c)
   };
   const tmp = new THREE.Color();
   function colorAt(x, z, h, slope, out) {
@@ -120,11 +120,11 @@ NK.land = (function () {
       parts.push(colored(t, s % 2 ? 0x7a6448 : 0x6a563d));
     }
     // Drooping fronds.
-    for (let f = 0; f < 8; f++) {
-      const fr = new THREE.PlaneGeometry(1.4, 6.5, 1, 4);
+    for (let f = 0; f < 10; f++) {
+      const fr = new THREE.PlaneGeometry(2.6, 7.5, 1, 4);
       const p = fr.attributes.position;
       for (let i = 0; i < p.count; i++) { const y = p.getY(i) + 3.25; p.setY(i, y); p.setZ(i, -0.06 * y * y); p.setX(i, p.getX(i) * (1 - y / 7.5)); }
-      fr.rotateX(-Math.PI / 2 + 0.35); fr.rotateY(f / 8 * Math.PI * 2 + Math.random() * 0.3);
+      fr.rotateX(-Math.PI / 2 + 0.35 + (f % 2) * 0.25); fr.rotateY(f / 10 * Math.PI * 2 + Math.random() * 0.3);
       fr.translate(1.4, 12.6, 0);
       parts.push(colored(fr, f % 2 ? 0x4c7a2e : 0x5d8c34, 0.15));
     }
@@ -200,7 +200,7 @@ NK.land = (function () {
       if (NK.ports.nearTown(x, z, 20)) continue;
       const s = w.shore(x, z);
       const dens = NK.fbm(x * 0.004, z * 0.004, 3) * 0.5 + 0.5;
-      if (s < 150 && h < 16) { if (rnd() < 0.6 && palms.length < 170) palms.push([x, h, z, rnd()]); }
+      if (s < 150 && h < 16) { if (rnd() < 0.35 && palms.length < 90) palms.push([x, h, z, rnd()]); }
       else if (rnd() < dens && trees.length < 300) trees.push([x, h, z, rnd()]);
     }
     const g = new THREE.Group();
