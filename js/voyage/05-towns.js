@@ -87,6 +87,28 @@ NK.ports = (function () {
     return merge(p);
   }
 
+  // A kampung stilt hut from two modeled pieces: the raised platform and
+  // the thatched roof on its posts.
+  function kampungHut() {
+    const a = NK.assets.bake('structure'), b = NK.assets.bake('structure-roof');
+    if (!a || !b) return null;
+    const lift = a.size.y - 0.05, parts = [a.geometry, b.geometry];
+    let total = 0; parts.forEach(g => total += g.attributes.position.count);
+    const out = new THREE.BufferGeometry();
+    ['position', 'normal', 'color', 'uv'].forEach(attr => {
+      const size = attr === 'uv' ? 2 : 3, arr = new Float32Array(total * size); let off = 0;
+      parts.forEach((g, gi) => {
+        const src = g.attributes[attr].array;
+        if (attr === 'position' && gi === 1) { for (let i = 0; i < src.length; i += 3) { arr[off + i] = src[i]; arr[off + i + 1] = src[i + 1] + lift; arr[off + i + 2] = src[i + 2]; } }
+        else arr.set(src, off);
+        off += src.length;
+      });
+      out.setAttribute(attr, new THREE.BufferAttribute(arr, size));
+    });
+    out.computeBoundingSphere();
+    return { geometry: out, map: a.map || b.map };
+  }
+
   function init(sc) {
     scene = sc;
     const w = NK.world;
@@ -99,7 +121,7 @@ NK.ports = (function () {
       const rnd = NK.rng(p.idx * 7919 + 13);
       const tx = -p.nz, tz = p.nx;                     // along the shore
       const face = Math.atan2(-p.nx, -p.nz);          // seaward
-      const size = p.entrepot ? 64 : p.maluku ? 34 : 30;
+      const size = p.entrepot ? 38 : p.maluku ? 22 : 18;
       const reach = p.entrepot ? 150 : 95;
       let placed = 0;
       for (let t = 0; t < size * 6 && placed < size; t++) {
@@ -154,15 +176,18 @@ NK.ports = (function () {
       return Object.assign(p, { kind, landmark: { x: lx, z: lz, h: lh }, dock: { x: end[0], z: end[2] }, radius: reach + 40, core: p.entrepot ? 120 : 70 });
     });
 
-    const inst = (geo, arr, cast) => {
-      const im = new THREE.InstancedMesh(geo, mat, arr.length);
+    const inst = (geo, arr, cast, material, k, dy) => {
+      const im = new THREE.InstancedMesh(geo, material || mat, arr.length);
+      k = k || 1; dy = dy || 0;
       const p3 = new THREE.Vector3(), s3 = new THREE.Vector3();
-      arr.forEach(([x, y, z, r, s], i) => { q.setFromAxisAngle(up, r); s3.setScalar(s || 1); p3.set(x, y, z); m4.compose(p3, q, s3); im.setMatrixAt(i, m4); });
+      arr.forEach(([x, y, z, r, s], i) => { q.setFromAxisAngle(up, r); s3.setScalar((s || 1) * k); p3.set(x, y + dy, z); m4.compose(p3, q, s3); im.setMatrixAt(i, m4); });
       im.castShadow = cast; im.receiveShadow = true; im.frustumCulled = false;
       scene.add(im); return im;
     };
-    inst(houseGeo, houseT, true);
-    inst(jettyGeo, jettyT, true);
+    const hut = NK.assets.ok && kampungHut();
+    const dock = NK.assets.ok && NK.assets.bake('structure-platform-dock');
+    if (hut) inst(hut.geometry, houseT, true, NK.assets.material(hut.map), 2.7, 0.6); else inst(houseGeo, houseT, true);
+    if (dock) inst(dock.geometry, jettyT, true, NK.assets.material(dock.map), 2.45, -0.6); else inst(jettyGeo, jettyT, true);
     lampMat = new THREE.MeshBasicMaterial({ color: 0xffb35a, fog: true });
     lamps = new THREE.InstancedMesh(new THREE.SphereGeometry(0.9, 6, 4), lampMat, lampT.length);
     lampT.forEach(([x, y, z], i) => { m4.makeTranslation(x, y, z); lamps.setMatrixAt(i, m4); });
