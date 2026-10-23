@@ -20,19 +20,19 @@ NK.chart = (function () {
       let r, gg, b;
       if (v < 0) {
         const k = Math.min(1, Math.sqrt(-v / 1500));
-        r = 205 - 50 * k; gg = 214 - 34 * k; b = 200 - 8 * k;
-        if (-v < 14) { r = 90; gg = 72; b = 50; }                       // ink coastline
-        else if (-v < 60 && (Math.floor(-v / 18) % 2 === 0)) { r -= 12; gg -= 8; b -= 6; }   // hatching offshore
+        r = 196 - 110 * k; gg = 238 - 60 * k; b = 236 - 26 * k;
+        if (-v < 12) { r = 120; gg = 160; b = 160; }                    // soft coastline
+        else if (-v < 50) { r += 14; gg += 8; b += 4; }                 // shallows
       } else {
         const k = Math.min(1, v / 1400);
-        r = 228 - 40 * k - n * 8; gg = 210 - 46 * k - n * 8; b = 160 - 52 * k - n * 6;
-        if (v < 10) { r = 90; gg = 72; b = 50; }
+        r = 238 - 70 * k - n * 8; gg = 226 - 20 * k - n * 6; b = 182 - 60 * k - n * 6;
+        if (v < 8) { r = 120; gg = 160; b = 160; }
       }
       d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 255;
     }
     g.putImageData(im, 0, 0);
     // Volcano marks in ink.
-    g.fillStyle = 'rgba(90,60,35,0.55)';
+    g.fillStyle = 'rgba(110,90,70,0.6)';
     w.VOLCANOES.forEach(v => { const [px, py] = toImg(v.x, v.z); g.beginPath(); g.moveTo(px, py - 5); g.lineTo(px - 4, py + 3); g.lineTo(px + 4, py + 3); g.fill(); });
     img = c;
   }
@@ -59,9 +59,9 @@ NK.chart = (function () {
     NK.ports.list.forEach(p => {
       const x = tx(p.x), y = tz(p.z); if (x < -20 || y < -20 || x > W + 20 || y > W + 20) return;
       const dest = st.contract && st.contract.destIdx === p.idx;
-      g.fillStyle = dest ? '#3f7a2a' : '#2a2017'; g.beginPath(); g.arc(x, y, dest ? 9 : 6, 0, 7); g.fill();
-      g.fillStyle = '#efe4c8'; g.beginPath(); g.arc(x, y, dest ? 4 : 2.5, 0, 7); g.fill();
-      g.font = '600 20px "Cormorant Garamond", Georgia, serif'; g.fillStyle = '#2a2017'; g.textAlign = 'center';
+      g.fillStyle = dest ? '#2f9e6a' : '#12323b'; g.beginPath(); g.arc(x, y, dest ? 9 : 6, 0, 7); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, dest ? 4 : 2.5, 0, 7); g.fill();
+      g.font = '600 20px Fraunces, Georgia, serif'; g.fillStyle = '#12323b'; g.textAlign = 'center';
       g.fillText(p.name, x, y - 12);
     });
     // Ships.
@@ -74,14 +74,14 @@ NK.chart = (function () {
     NK.fleet.loot.forEach(l => { g.fillStyle = '#b8873d'; g.fillRect(tx(l.mesh.position.x) - 3, tz(l.mesh.position.z) - 3, 6, 6); });
     // Wind streak and our ship.
     const w = NK.game.wind(P.pos.x, P.pos.z);
-    g.strokeStyle = 'rgba(40,90,110,0.65)'; g.lineWidth = 3;
+    g.strokeStyle = 'rgba(15,139,141,0.55)'; g.lineWidth = 3;
     for (let i = -1; i <= 1; i++) { const ox = W / 2 + i * 60 * -w.z, oy = W / 2 + i * 60 * w.x; g.beginPath(); g.moveTo(ox - w.x * 40, oy - w.z * 40); g.lineTo(ox + w.x * 40, oy + w.z * 40); g.stroke(); }
     g.translate(W / 2, W / 2); g.rotate(-P.heading);
-    g.fillStyle = '#7a2b1c'; g.strokeStyle = '#efe4c8'; g.lineWidth = 2.5;
+    g.fillStyle = '#e8664a'; g.strokeStyle = '#fff'; g.lineWidth = 2.5;
     g.beginPath(); g.moveTo(18, 0); g.lineTo(-11, 10); g.lineTo(-6, 0); g.lineTo(-11, -10); g.closePath(); g.fill(); g.stroke();
     g.restore();
     // N mark.
-    g.font = '700 22px "Cormorant Garamond", Georgia, serif'; g.fillStyle = '#7a2b1c'; g.textAlign = 'center'; g.fillText('N', W / 2, 26);
+    g.font = '700 22px Fraunces, Georgia, serif'; g.fillStyle = '#e8664a'; g.textAlign = 'center'; g.fillText('N', W / 2, 26);
   }
 
   // ---------- Full chart ----------
@@ -92,9 +92,9 @@ NK.chart = (function () {
         <div class="chart-bar">
           <div><div class="kicker">The pilot's chart · ${NK.game.dateLabel()}</div><h2 style="margin:2px 0 0">The Nusantara &amp; the Spice Islands</h2></div>
           <div class="legend">
-            <span><i style="background:#2a2017"></i>Port</span><span><i style="background:#b8873d"></i>Charted (docked)</span>
-            <span><i style="background:#3f7a2a"></i>Charter bound</span><span><i style="background:#a3321f"></i>Hostile sail</span>
-            <span style="color:#2f5c6b">➝ ${NK.game.season().name} winds</span>
+            <span><i style="background:#12323b"></i>Port</span><span><i style="background:#0f8b8d"></i>Charted (docked)</span>
+            <span><i style="background:#2f9e6a"></i>Charter bound</span><span><i style="background:#e8664a"></i>Hostile sail</span>
+            <span style="color:#0f8b8d">➝ ${NK.game.season().name} winds</span>
           </div>
           <div id="chart-actions"></div>
         </div>
@@ -126,15 +126,15 @@ NK.chart = (function () {
   function draw() {
     if (!cv) return;
     const w = NK.world, g = ctx, st = NK.game.state, P = NK.player, dpr = devicePixelRatio;
-    g.fillStyle = '#a9bdb8'; g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = '#8fc9d4'; g.fillRect(0, 0, cv.width, cv.height);
     g.imageSmoothingEnabled = true;
     g.drawImage(img, sx(w.x0), sz(w.z0), w.W * w.U * view.scale, w.H * w.U * view.scale);
     // Graticule.
-    g.strokeStyle = 'rgba(90,70,45,0.18)'; g.lineWidth = 1; g.font = `${11 * dpr}px Inter, sans-serif`; g.fillStyle = 'rgba(90,70,45,0.55)';
+    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 1; g.font = `${11 * dpr}px Inter, sans-serif`; g.fillStyle = 'rgba(18,50,59,0.5)';
     for (let lng = 95; lng <= 135; lng += 5) { const x = sx(worldProject(0, lng).x); g.beginPath(); g.moveTo(x, 0); g.lineTo(x, cv.height); g.stroke(); g.fillText(lng + '°E', x + 3, 14 * dpr); }
     for (let lat = -10; lat <= 20; lat += 5) { const y = sz(worldProject(lat, 112).z); g.beginPath(); g.moveTo(0, y); g.lineTo(cv.width, y); g.stroke(); g.fillText(Math.abs(lat) + '°' + (lat >= 0 ? 'N' : 'S'), 4, y - 3); }
     // Season winds.
-    g.strokeStyle = 'rgba(47,92,107,0.45)'; g.fillStyle = 'rgba(47,92,107,0.45)'; g.lineWidth = 1.5 * dpr;
+    g.strokeStyle = 'rgba(255,255,255,0.75)'; g.fillStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = 1.5 * dpr;
     for (let lat = -10; lat <= 19; lat += 3) for (let lng = 94; lng <= 134; lng += 3.5) {
       const p = worldProject(lat, lng); if (w.coast(p.x, p.z) > -50) continue;
       const wd = NK.game.wind(p.x, p.z), x = sx(p.x), y = sz(p.z), L = 14 * dpr * (0.6 + wd.strength * 0.4);
@@ -151,18 +151,18 @@ NK.chart = (function () {
     NK.ports.list.forEach(p => {
       const x = sx(p.x), y = sz(p.z), known = st.known[p.name], dest = st.contract && st.contract.destIdx === p.idx;
       const r = (p.entrepot ? 6 : 4.5) * dpr;
-      g.fillStyle = dest ? '#3f7a2a' : known ? '#b8873d' : '#2a2017';
+      g.fillStyle = dest ? '#2f9e6a' : known ? '#0f8b8d' : '#12323b';
       g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
-      g.strokeStyle = '#efe4c8'; g.lineWidth = 1.5 * dpr; g.stroke();
-      if (hover === p) { g.strokeStyle = '#7a2b1c'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(x, y, r + 5 * dpr, 0, 7); g.stroke(); }
+      g.strokeStyle = '#fff'; g.lineWidth = 1.5 * dpr; g.stroke();
+      if (hover === p) { g.strokeStyle = '#e8664a'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(x, y, r + 5 * dpr, 0, 7); g.stroke(); }
       // Minor ports name themselves once you zoom in, or once they matter to you.
       if (!p.entrepot && !known && !dest && hover !== p && view.scale < baseScale * 1.7) return;
-      g.font = `${p.entrepot ? 600 : 500} ${(p.entrepot ? 17 : 14) * dpr}px "Cormorant Garamond", Georgia, serif`;
-      g.fillStyle = '#2a2017'; g.textAlign = 'left'; g.fillText(p.name, x + r + 4 * dpr, y + 4 * dpr);
+      g.font = `${p.entrepot ? 600 : 500} ${(p.entrepot ? 17 : 14) * dpr}px Fraunces, Georgia, serif`;
+      g.fillStyle = '#12323b'; g.textAlign = 'left'; g.fillText(p.name, x + r + 4 * dpr, y + 4 * dpr);
     });
     // Ship.
     g.save(); g.translate(sx(P.pos.x), sz(P.pos.z)); g.rotate(-P.heading);
-    g.fillStyle = '#7a2b1c'; g.strokeStyle = '#efe4c8'; g.lineWidth = 2 * dpr;
+    g.fillStyle = '#e8664a'; g.strokeStyle = '#fff'; g.lineWidth = 2 * dpr;
     g.beginPath(); g.moveTo(14 * dpr, 0); g.lineTo(-9 * dpr, 8 * dpr); g.lineTo(-5 * dpr, 0); g.lineTo(-9 * dpr, -8 * dpr); g.closePath(); g.fill(); g.stroke();
     g.restore();
     // Hostile sails we've sighted.

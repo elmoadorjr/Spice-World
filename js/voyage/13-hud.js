@@ -6,7 +6,7 @@
 
 NK.ui = (function () {
   let modalKind = null, portOpen = null, camera = null;
-  const touch = { left: false, right: false };
+  const touch = { left: false, right: false, sheetIn: false, sheetOut: false };
   const $ = NK.$;
   const seenBanner = {};
 
@@ -24,7 +24,7 @@ NK.ui = (function () {
   const storyQueue = [];
   function story(title, body) {
     if (modalKind) { storyQueue.push([title, body]); return; }
-    showModal(`<div class="sheet story"><div class="ornament">✦ ✦ ✦</div><h1>${title}</h1><div class="body">${body}</div>
+    showModal(`<div class="sheet story"><div class="ornament">● ● ●</div><h1>${title}</h1><div class="body">${body}</div>
       <div class="actions"><button class="btn primary" data-close>Continue</button></div></div>`, 'story');
   }
 
@@ -32,7 +32,7 @@ NK.ui = (function () {
     if (modalKind === 'pause') { closeModal(); return; }
     if (modalKind) return;
     const s = NK.game.state;
-    showModal(`<div class="sheet story"><div class="ornament">✦</div><h1>Becalmed</h1>
+    showModal(`<div class="sheet story"><div class="ornament">●</div><h1>Becalmed</h1>
       <div class="body" style="text-align:center">
         <p>${NK.game.rankName()} · ${NK.game.TIERS[s.tier].n} · Day ${s.day}, ${NK.game.dateLabel()}</p>
         <p class="nk-meta">${s.stats.deliveries} charters delivered · ${s.stats.piratesSunk} pirates sunk · ${NK.fmt(s.stats.earned)} pisis earned</p>
@@ -40,10 +40,14 @@ NK.ui = (function () {
       <div class="actions">
         <button class="btn primary" data-close>Resume</button>
         <button class="btn" id="p-sound">Sound: ${NK.audio.enabled ? 'on' : 'off'}</button>
+        <button class="btn" id="p-refl">Reflections: ${NK.water.reflections ? 'on' : 'off'}</button>
+        <button class="btn" id="p-trim">Trim: ${NK.player.assist ? 'assisted' : 'manual'}</button>
         ${NK.embedded ? '<button class="btn" id="p-room">Return to the Chart Room</button>' : '<a class="btn" href="index.html" style="text-decoration:none">The Atlas</a>'}
         <button class="btn" id="p-new">New voyage</button>
       </div></div>`, 'pause');
     $('p-sound').onclick = () => { $('p-sound').textContent = 'Sound: ' + (NK.audio.toggle() ? 'on' : 'off'); };
+    $('p-refl').onclick = () => { $('p-refl').textContent = 'Reflections: ' + (NK.water.toggleReflections() ? 'on' : 'off'); };
+    $('p-trim').onclick = () => { NK.player.toggleAssist(); $('p-trim').textContent = 'Trim: ' + (NK.player.assist ? 'assisted' : 'manual'); };
     $('p-new').onclick = () => { if (confirm('Abandon this voyage and start again from Melaka?')) NK.main.newVoyage(); };
     const room = $('p-room'); if (room) room.onclick = exitToRoom;
   }
@@ -65,9 +69,10 @@ NK.ui = (function () {
       </div>
       ${hasSave ? `<div class="save-line">${saveLine}</div>` : ''}
       <div class="keys">
-        <span><kbd>A</kbd><kbd>D</kbd>Steer</span><span><kbd>W</kbd><kbd>S</kbd>Raise / furl sail</span>
+        <span><kbd>A</kbd><kbd>D</kbd>Steer</span><span><kbd>W</kbd><kbd>S</kbd>Sheet in / out</span>
+        <span><kbd>Space</kbd>Hoist / furl</span><span><kbd>X</kbd>Reef</span>
         <span><kbd>Q</kbd><kbd>E</kbd>Broadsides</span><span><kbd>F</kbd>Enter port</span>
-        <span><kbd>M</kbd>Chart</span><span><kbd>R</kbd>Pilot</span><span><kbd>T</kbd>Fair winds</span><span><kbd>Esc</kbd>Pause</span>
+        <span><kbd>M</kbd>Chart</span><span><kbd>Esc</kbd>Menu</span>
       </div></div>`;
     const go = fresh => { NK.audio.start(); t.classList.add('gone'); setTimeout(() => { t.style.display = 'none'; }, 1000); onGo(fresh); };
     if ($('t-go')) $('t-go').onclick = () => go(false);
@@ -155,18 +160,19 @@ NK.ui = (function () {
     const cv = $('h-dial'), g = cv.getContext('2d'), W = cv.width, P = NK.player;
     g.clearRect(0, 0, W, W);
     const c = W / 2, r = W / 2 - 6;
-    g.strokeStyle = 'rgba(232,196,122,0.5)'; g.lineWidth = 2; g.beginPath(); g.arc(c, c, r, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(15,139,141,0.07)'; g.beginPath(); g.arc(c, c, r, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(18,50,59,0.18)'; g.lineWidth = 2; g.beginPath(); g.arc(c, c, r, 0, 7); g.stroke();
     // No-go cone (in irons) ahead of the bow, relative to the wind.
     const w = NK.game.wind(P.pos.x, P.pos.z);
     const from = Math.atan2(-w.z, -w.x), hv = Math.atan2(-Math.sin(P.heading), Math.cos(P.heading));
     const rel = NK.wrapAngle(from - hv);                 // wind source relative to bow (screen: bow up)
     const a = rel - Math.PI / 2;
-    g.fillStyle = 'rgba(224,139,111,0.28)'; g.beginPath(); g.moveTo(c, c); g.arc(c, c, r, a - 0.62, a + 0.62); g.fill();
+    g.fillStyle = 'rgba(232,102,74,0.22)'; g.beginPath(); g.moveTo(c, c); g.arc(c, c, r, a - 0.62, a + 0.62); g.fill();
     // Ship silhouette, bow up.
-    g.fillStyle = '#efe3c5'; g.beginPath(); g.moveTo(c, c - 22); g.quadraticCurveTo(c + 9, c, c + 6, c + 20); g.lineTo(c - 6, c + 20); g.quadraticCurveTo(c - 9, c, c, c - 22); g.fill();
+    g.fillStyle = '#12323b'; g.beginPath(); g.moveTo(c, c - 22); g.quadraticCurveTo(c + 9, c, c + 6, c + 20); g.lineTo(c - 6, c + 20); g.quadraticCurveTo(c - 9, c, c, c - 22); g.fill();
     // Wind arrow blowing in from the rim.
     const ax = c + Math.cos(a) * (r - 2), ay = c + Math.sin(a) * (r - 2), bx = c + Math.cos(a) * (r - 22), by = c + Math.sin(a) * (r - 22);
-    g.strokeStyle = '#9fd3df'; g.fillStyle = '#9fd3df'; g.lineWidth = 4; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+    g.strokeStyle = '#0f8b8d'; g.fillStyle = '#0f8b8d'; g.lineWidth = 4; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
     g.beginPath(); g.moveTo(bx + Math.cos(a) * -6, by + Math.sin(a) * -6); g.lineTo(bx + Math.cos(a + 2.4) * 10, by + Math.sin(a + 2.4) * 10); g.lineTo(bx + Math.cos(a - 2.4) * 10, by + Math.sin(a - 2.4) * 10); g.fill();
   }
 
@@ -189,18 +195,38 @@ NK.ui = (function () {
       $('h-charter').innerHTML = c ? `Charter: ${c.qty} ${c.good} to <b>${PORT_DATA[c.destIdx].name}</b> by day ${c.expiresDay}` : '';
       $('h-pos').textContent = P.pointOfSail(P.offWind || 0) + (NK.sky.state.weather === 'squall' ? ' · squall' : NK.sky.state.weather === 'mist' ? ' · mist' : '');
       $('h-pos').className = 'pos' + ((P.offWind || 0) < 0.62 ? ' irons' : '');
-      const pips = $('h-sail').querySelectorAll('i');
-      pips[0].className = P.sailTarget >= 0.5 ? 'on' : ''; pips[1].className = P.sailTarget >= 1 ? 'on' : '';
-      $('h-sail').querySelector('span').textContent = P.sailTarget === 0 ? 'Furled' : P.sailTarget < 1 ? 'Half sail' : 'Full sail';
+      $('h-sail').textContent = (P.sailTarget === 0 ? 'Furled' : P.sailTarget < 1 ? 'Reefed' : 'Full sail') + (P.assist ? ' · assist' : '');
+      $('h-heel').innerHTML = P.overHeel > 0.02 ? `<span class="warn">Heel ${Math.round(P.heelDeg)}°, ease out</span>` : `Heel ${Math.round(P.heelDeg)}°`;
+      const guns = NK.fleet.threatNear(900) || P.reload.left > 0 || P.reload.right > 0;
+      $('h-guns').className = 'guns' + (guns ? ' show' : '');
+      if (NK.T > 75) $('h-keys').classList.add('faded');
       $('fair').style.display = NK.timeScale > 1 ? 'block' : 'none';
       prompt();
       bannerCheck();
     }
     $('h-speed').textContent = (Math.abs(P.speed) * 0.36).toFixed(1);
+    trimGauge(P);
     const rl = 7 * (1 - s.upg.guns * 0.08);
     $('h-rl').style.width = (100 - P.reload.left / rl * 100) + '%'; $('h-rr').style.width = (100 - P.reload.right / rl * 100) + '%';
     compass(); dial(); labels();
     NK.chart.drawMini($('h-mini'));
+  }
+  // Sheet scale: 0 (hauled in tight) to 1.5 rad (eased right out).
+  function trimGauge(P) {
+    const bar = $('h-trim'), pct = v => NK.clamp(v / 1.5, 0, 1) * 100;
+    const irons = (P.offWind || 0) < 0.62;
+    const lo = pct(P.optSheet - 0.18), hi = pct(P.optSheet + 0.12);
+    bar.firstChild.style.left = lo + '%'; bar.firstChild.style.width = Math.max(4, hi - lo) + '%';
+    bar.firstChild.style.opacity = irons || P.sail < 0.05 ? 0.2 : 1;
+    bar.children[1].style.left = pct(P.sheet) + '%';
+    const lbl = $('h-trimlbl');
+    let t, c;
+    if (P.sail < 0.05) { t = 'Sail furled'; c = 'luff'; }
+    else if (irons) { t = 'In irons: bear away'; c = 'stall'; }
+    else if (P.trimErr > 0.12) { t = 'Luffing: sheet in (W)'; c = 'luff'; }
+    else if (P.trimErr < -0.18) { t = 'Stalled: ease out (S)'; c = 'stall'; }
+    else { t = P.trimEff > 0.92 ? 'Perfect trim' : 'Drawing well'; c = ''; }
+    if (lbl.textContent !== t) { lbl.textContent = t; lbl.className = c; }
   }
   function timeWord(f) { return f < 0.2 ? 'night' : f < 0.3 ? 'dawn' : f < 0.45 ? 'morning' : f < 0.58 ? 'noon' : f < 0.7 ? 'afternoon' : f < 0.8 ? 'dusk' : 'night'; }
   function cargoSummary() {
@@ -251,7 +277,9 @@ NK.ui = (function () {
     const hold = (id, on, off) => { const b = $(id); b.addEventListener('touchstart', e => { e.preventDefault(); b.classList.add('on'); on(); }, { passive: false }); b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); off && off(); }); };
     hold('tc-left', () => touch.left = true, () => touch.left = false);
     hold('tc-right', () => touch.right = true, () => touch.right = false);
-    hold('tc-up', () => NK.player.stepSail(1)); hold('tc-down', () => NK.player.stepSail(-1));
+    hold('tc-in', () => touch.sheetIn = true, () => touch.sheetIn = false);
+    hold('tc-out', () => touch.sheetOut = true, () => touch.sheetOut = false);
+    hold('tc-furl', () => NK.player.hoist());
     hold('tc-fl', () => NK.fleet.fire(NK.player, 'left')); hold('tc-fr', () => NK.fleet.fire(NK.player, 'right'));
   }
 

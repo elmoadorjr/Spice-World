@@ -8,11 +8,11 @@ NK.sky = (function () {
     // t (0..1 of a day), zenith, horizon, sun color, sun intensity, ambient
     [0.00, 0x07101f, 0x16223a, 0x8899cc, 0.00, 0.22],
     [0.21, 0x0d1a33, 0x3a3550, 0xff9a5a, 0.00, 0.25],
-    [0.25, 0x3b5b8a, 0xf2a46b, 0xffb070, 0.70, 0.45],
-    [0.31, 0x4d86b8, 0xdcc9a6, 0xffe2b0, 1.25, 0.50],
-    [0.50, 0x3f7fc0, 0xbfd8e2, 0xfff3dc, 1.55, 0.55],
-    [0.69, 0x4d86b8, 0xe0c69c, 0xffe0aa, 1.25, 0.50],
-    [0.75, 0x3b4f80, 0xf08a55, 0xff8a4a, 0.70, 0.45],
+    [0.25, 0x4a78b0, 0xf6b783, 0xffc090, 0.80, 0.55],
+    [0.31, 0x3f8fd6, 0xcfe6ee, 0xfff0d2, 1.45, 0.62],
+    [0.50, 0x2d86d8, 0xc8ecf5, 0xfffaf0, 1.75, 0.68],
+    [0.69, 0x3f8fd6, 0xe6dcc0, 0xfff0d0, 1.45, 0.62],
+    [0.75, 0x4a6aa8, 0xf5a070, 0xffa060, 0.80, 0.52],
     [0.79, 0x101c36, 0x40324a, 0xff7a4a, 0.00, 0.26],
     [1.00, 0x07101f, 0x16223a, 0x8899cc, 0.00, 0.22]
   ].map(r => ({ t: r[0], zen: new THREE.Color(r[1]), hor: new THREE.Color(r[2]), sun: new THREE.Color(r[3]), si: r[4], amb: r[5] }));
@@ -58,7 +58,8 @@ NK.sky = (function () {
         float c = fbm(uv);
         float cov = mix(0.62, 0.30, cloud);
         float a = smoothstep(cov, cov + 0.22, c) * smoothstep(0.0, 0.18, d.y);
-        vec3 lit = mix(vec3(1.0), sunColor, 0.35) * (0.75 + 0.25 * pow(sd, 3.0));
+        float low = 1.0 - smoothstep(0.05, 0.45, sunDir.y);
+        vec3 lit = mix(vec3(1.0), sunColor * vec3(1.05, 0.78, 0.82), 0.3 + 0.55 * low) * (0.78 + 0.3 * pow(sd, 3.0));
         vec3 cc = mix(lit, zenith * 0.6 + horizon * 0.25, smoothstep(cov, cov + 0.5, c) * 0.55);
         cc = mix(cc, vec3(0.28,0.31,0.36), storm * 0.75);
         cc *= mix(1.0, 0.35, night);
@@ -148,9 +149,9 @@ NK.sky = (function () {
     hemi.color.copy(state.zenith).lerp(new THREE.Color(0xffffff), 0.45);
 
     scene.fog.color.copy(state.horizon);
-    scene.fog.near = NK.lerp(1600, 120, Math.max(state.mist, state.storm * 0.5));
-    scene.fog.far = NK.lerp(7600, 1300, Math.max(state.mist, state.storm * 0.55));
-    NK.renderer.toneMappingExposure = 0.82 + state.night * 0.3;
+    scene.fog.near = NK.lerp(2600, 140, Math.max(state.mist, state.storm * 0.5));
+    scene.fog.far = NK.lerp(9500, 1400, Math.max(state.mist, state.storm * 0.55));
+    NK.renderer.toneMappingExposure = 0.95 + state.night * 0.3;
   }
 
   return { init, update, state, get sun() { return sunLight; } };

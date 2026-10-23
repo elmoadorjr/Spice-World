@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Nakhoda: The Spice Sea</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/voyage.css">
 </head>
 <body>
@@ -14,56 +14,60 @@
 <div id="game"></div>
 
 <div id="hud" class="hidden">
-  <div class="hud-tl panel">
+  <div class="hud-tl glass">
     <div class="purse"><i class="coin"></i><b id="h-gold">0</b><span>pisis</span></div>
-    <div class="hud-line rank" id="h-rank"></div>
-    <div class="hud-line" id="h-date"></div>
-    <div class="hud-line season" id="h-season"></div>
+    <div class="hud-meta"><span id="h-rank"></span><span id="h-date"></span></div>
+    <div class="season" id="h-season"></div>
   </div>
 
-  <div class="hud-compass panel"><div class="strip" id="h-strip"></div><div class="center"></div></div>
+  <div class="hud-compass glass"><div class="strip" id="h-strip"></div><div class="center"></div></div>
 
   <div class="hud-tr">
     <canvas id="h-mini" width="336" height="336" title="Open the chart (M)"></canvas>
-    <button class="chip-btn" id="b-chart">Chart</button>
+    <button class="chip-btn" id="b-chart">Chart · M</button>
   </div>
-  <div id="fair">Fair winds · ×3</div>
+  <div id="fair">Fair winds ×3</div>
 
-  <div class="hud-bl panel">
-    <div class="gauge-row"><span>Hull</span><b id="h-hp"></b></div>
+  <div class="hud-helm glass">
+    <canvas id="h-dial" width="140" height="140"></canvas>
+    <div class="helm-main">
+      <div class="speed"><span id="h-speed">0.0</span><small>kn</small></div>
+      <div class="pos" id="h-pos">In irons</div>
+    </div>
+    <div class="helm-trim">
+      <div class="trim-head"><span>Sheet: in ◂ ▸ out</span><b id="h-trimlbl">Trimmed</b></div>
+      <div class="trim-bar" id="h-trim"><div class="zone"></div><div class="mark"></div></div>
+      <div class="trim-foot"><span id="h-sail">Full sail</span><span id="h-heel">Heel 0°</span></div>
+    </div>
+  </div>
+
+  <div class="hud-ship glass">
+    <div class="row"><span>Hull</span><b id="h-hp"></b></div>
     <div class="bar" id="h-hpbar"><i></i></div>
-    <div class="helm">
-      <canvas id="h-dial" width="128" height="128"></canvas>
-      <div>
-        <div class="speed"><span id="h-speed">0.0</span><small>KNOTS</small></div>
-        <div class="pos" id="h-pos">In irons</div>
-        <div class="sail-pips" id="h-sail"><i></i><i></i><span>Furled</span></div>
-      </div>
-    </div>
-    <div class="hold-line"><div id="h-hold"></div><div class="charter" id="h-charter"></div></div>
-    <div class="guns">
-      <div>Port guns <span class="k">Q</span><div class="bar"><i id="h-rl"></i></div></div>
-      <div>Starboard guns <span class="k">E</span><div class="bar"><i id="h-rr"></i></div></div>
+    <div class="row small" id="h-hold"></div>
+    <div class="row small charter" id="h-charter"></div>
+    <div class="guns" id="h-guns">
+      <div><span>Port · Q</span><div class="bar"><i id="h-rl"></i></div></div>
+      <div><span>Starboard · E</span><div class="bar"><i id="h-rr"></i></div></div>
     </div>
   </div>
 
-  <div class="hud-br panel">
-    <div><kbd>A</kbd><kbd>D</kbd> steer &nbsp; <kbd>W</kbd><kbd>S</kbd> sails</div>
-    <div><kbd>Q</kbd><kbd>E</kbd> broadsides &nbsp; <kbd>F</kbd> dock</div>
-    <div><kbd>M</kbd> chart &nbsp; <kbd>R</kbd> pilot &nbsp; <kbd>T</kbd> fair winds</div>
-    <div>Drag to look · scroll to zoom · <kbd>Esc</kbd></div>
+  <div class="hud-keys" id="h-keys">
+    <span><kbd>A</kbd><kbd>D</kbd> steer</span><span><kbd>W</kbd><kbd>S</kbd> sheet in / out</span><span><kbd>Space</kbd> hoist / furl</span><span><kbd>X</kbd> reef</span>
+    <span><kbd>Q</kbd><kbd>E</kbd> fire</span><span><kbd>F</kbd> dock</span><span><kbd>M</kbd> chart</span><span><kbd>G</kbd> trim assist</span><span><kbd>Esc</kbd> menu</span>
   </div>
 
   <div id="h-prompt"><button id="h-prompt-btn"></button></div>
   <div id="toasts"></div>
-  <div id="banner"><div class="t"></div><div class="s"></div><div class="rule"></div></div>
+  <div id="banner"><div class="t"></div><div class="s"></div></div>
   <div id="labels"></div>
   <div id="floaters"></div>
 
   <div id="touch">
     <button class="tc" id="tc-left">◀</button><button class="tc" id="tc-right">▶</button>
-    <button class="tc" id="tc-up"><small>SAIL</small>▲</button><button class="tc" id="tc-down"><small>SAIL</small>▼</button>
-    <button class="tc" id="tc-fl"><small>FIRE</small>◀</button><button class="tc" id="tc-fr"><small>FIRE</small>▶</button>
+    <button class="tc" id="tc-in"><small>SHEET</small>IN</button><button class="tc" id="tc-out"><small>SHEET</small>OUT</button>
+    <button class="tc small" id="tc-furl">SAIL</button>
+    <button class="tc fire" id="tc-fl"><small>FIRE</small>◀</button><button class="tc fire" id="tc-fr"><small>FIRE</small>▶</button>
   </div>
 </div>
 

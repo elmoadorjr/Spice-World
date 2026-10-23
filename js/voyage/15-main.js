@@ -51,6 +51,7 @@ NK.main = (function () {
         `The Spice World, Anno Domini 1500. You stand at the stern of your own <b>kelulus</b> off Melaka, with ${NK.fmt(s.gold)} pisis and a name nobody knows yet.` +
         `<p><b>The trade.</b> Buy what a port grows cheap, sell where it is wanted. Cloth and rice go east; cloves, nutmeg and mace come back west. The syahbandar of every port has charters for a captain who keeps his word.</p>` +
         `<p><b>The wind.</b> The <b>northeast monsoon</b> blows now: south of the line it turns into a westerly that carries ships east to the spice islands. Around May it fails, and from June the <b>southwest monsoon</b> brings them home. You cannot sail into the wind; sail across it.</p>` +
+        `<p><b>The sheet.</b> W hauls the sail in, S eases it out. Watch the trim gauge: too loose and the sail luffs and flaps, too tight and she stalls and heels hard. Space hoists or furls, X reefs in a blow, and G hands the sheet to your crew.</p>` +
         `<p><b>The climb.</b> Kelulus, Pencalang, Malangbang, Lancaran, <b>Jong</b>. And beyond the biggest hull in the world: the day power itself takes notice. <b>Sea Lord.</b></p>` +
         `<p><i>"The sea owes no man a debt, and takes none either."</i></p>`), 900);
     });
@@ -98,6 +99,8 @@ NK.main = (function () {
     NK.land.update(P);
     NK.ports.update();
     if (playing) { NK.ui.update(); NK.audio.update(); if (!paused) NK.game.autosave(); }
+    camera.updateMatrixWorld();
+    NK.water.renderReflection(NK.renderer, scene, camera, NK.fleet.reflectHide || []);
     NK.renderer.render(scene, camera);
   }
 

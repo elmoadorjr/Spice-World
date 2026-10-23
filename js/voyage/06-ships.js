@@ -18,7 +18,7 @@ NK.ships = (function () {
     if (sailTexCache[tone]) return sailTexCache[tone];
     const c = document.createElement('canvas'); c.width = 128; c.height = 128;
     const g = c.getContext('2d');
-    const base = { mat: ['#d9c290', '#c9ad78'], dark: ['#6b3a33', '#4f2a26'], royal: ['#e3cfa0', '#b8873d'], pale: ['#e8dcc0', '#d2c29e'] }[tone] || ['#d9c290', '#c9ad78'];
+    const base = { mat: ['#efe4c6', '#dccba0'], dark: ['#6b3a33', '#4f2a26'], royal: ['#e3cfa0', '#b8873d'], pale: ['#f6f0e0', '#e3d8bd'] }[tone] || ['#d9c290', '#c9ad78'];
     g.fillStyle = base[0]; g.fillRect(0, 0, 128, 128);
     // Woven pandan matting: a fine diagonal weave.
     for (let y = 0; y < 128; y += 4) for (let x = 0; x < 128; x += 4) {
@@ -37,9 +37,9 @@ NK.ships = (function () {
   }
 
   function hullGeometry(L, B, D) {
-    const N = 26, K = 7, pos = [], col = [], idx = [];
+    const N = 44, K = 10, pos = [], col = [], idx = [];
     const rings = [];
-    const plankA = new THREE.Color(0x5e3c22), plankB = new THREE.Color(0x6e4a2b), wet = new THREE.Color(0x3b2a1e);
+    const plankA = new THREE.Color(0x7a4526), plankB = new THREE.Color(0x8a5330), wet = new THREE.Color(0x4a2c1a), rail = new THREE.Color(0xc89a62);
     for (let s = 0; s <= N; s++) {
       const u = s / N * 2 - 1, au = Math.abs(u);
       const b = B / 2 * Math.pow(Math.max(0, 1 - Math.pow(au, 2.3)), 0.55) + 0.05;
@@ -52,7 +52,7 @@ NK.ships = (function () {
         const y = keel * Math.cos(phi) + top * (1 - Math.cos(phi));
         ring.push(pos.length / 3);
         pos.push(u * L / 2, y, lat);
-        const c = y < 0.2 ? wet : (Math.floor(y * 1.6) % 2 ? plankA : plankB);
+        const c = y < 0.2 ? wet : Math.abs(k) === K ? rail : (Math.floor(y * 1.6) % 2 ? plankA : plankB);
         col.push(c.r, c.g, c.b);
       }
       rings.push(ring);
@@ -62,7 +62,7 @@ NK.ships = (function () {
       idx.push(a, c, b, b, c, d);
     }
     // Deck.
-    const deckY = D * 0.92, deck = new THREE.Color(0xa47d50), deck2 = new THREE.Color(0x96714a);
+    const deckY = D * 0.92, deck = new THREE.Color(0xc79b66), deck2 = new THREE.Color(0xb88d5a);
     const dRing = [];
     for (let s = 2; s <= N - 2; s++) {
       const u = s / N * 2 - 1, au = Math.abs(u);
@@ -94,8 +94,9 @@ NK.ships = (function () {
     const spec = HULLS[Math.min(tier, HULLS.length - 1)];
     const L = spec.L * (opts.scale || 1), B = spec.B * (opts.scale || 1), D = spec.D * (opts.scale || 1);
     const group = new THREE.Group();
-    const wood = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide });
-    const timber = new THREE.MeshStandardMaterial({ color: 0x4e3622, roughness: 0.9 });
+    // Varnished teak: a soft clear coat catches the sun the way an oiled hull does.
+    const wood = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.45, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.25, side: THREE.DoubleSide });
+    const timber = new THREE.MeshStandardMaterial({ color: 0x6b4a2c, roughness: 0.6 });
     const bronze = new THREE.MeshStandardMaterial({ color: 0xa8793a, roughness: 0.35, metalness: 0.75 });
     const { geo, deckY } = hullGeometry(L, B, D);
     const hull = new THREE.Mesh(geo, wood); hull.castShadow = true; hull.receiveShadow = true;
@@ -128,7 +129,7 @@ NK.ships = (function () {
     }
     // Masts and tanja sails.
     const tone = opts.sail || 'mat';
-    const sailMat = new THREE.MeshStandardMaterial({ map: sailTexture(tone), roughness: 0.95, side: THREE.DoubleSide });
+    const sailMat = new THREE.MeshStandardMaterial({ map: sailTexture(tone), roughness: 0.9, side: THREE.DoubleSide, emissive: 0xffffff, emissiveIntensity: 0.04 });
     const sails = [];
     spec.masts.forEach((mu, mi) => {
       const k = mi === 0 && spec.masts.length > 1 ? 0.78 : (mi === spec.masts.length - 1 && spec.masts.length > 2 ? 0.7 : 1);
@@ -168,7 +169,8 @@ NK.ships = (function () {
   }
 
   // Sail animation: trim to the wind, swell with it, furl from the boom up.
-  function animateSails(ship, trimAngle, deploy, fill, t) {
+  function animateSails(ship, trimAngle, deploy, fill, t, luff) {
+    luff = luff || 0;
     ship.sails.forEach((s, i) => {
       s.pivot.rotation.y += (trimAngle - s.pivot.rotation.y) * 0.08;
       const d = Math.max(0.06, deploy);
@@ -179,8 +181,8 @@ NK.ships = (function () {
       for (let k = 0; k < p.count; k++) {
         const nx = (k % 7) / 6, ny = 1 - Math.floor(k / 7) / 6;
         const shape = Math.sin(Math.PI * nx) * (0.35 + 0.65 * Math.sin(Math.PI * ny));
-        const luff = Math.abs(fill) < 0.15 ? Math.sin(t * 9 + ny * 6 + i) * 0.25 : 0;
-        p.setZ(k, shape * (belly + luff));
+        const flap = (luff > 0 ? luff : Math.abs(fill) < 0.15 ? 1 : 0) * Math.sin(t * 11 + ny * 5 + nx * 3 + i) * 0.55;
+        p.setZ(k, shape * (belly + flap));
       }
       p.needsUpdate = true; s.mesh.geometry.computeVertexNormals();
     });

@@ -67,6 +67,8 @@ NK.water = (function () {
     varying vec3 vNormal;
     varying float vDepth;
     varying float vCrest;
+    varying vec4 vRefl;
+    uniform mat4 reflMatrix;
     #include <fog_pars_vertex>
     void main(){
       vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -91,6 +93,7 @@ NK.water = (function () {
       }
       vNormal = normalize(cross(bin, tangent));
       vWorld = p; vDepth = depth; vCrest = crest;
+      vRefl = reflMatrix * vec4(wp.x, 0.0, wp.z, 1.0);
       vec4 mvPosition = viewMatrix * vec4(p, 1.0);
       gl_Position = projectionMatrix * mvPosition;
       #include <fog_vertex>
@@ -99,7 +102,8 @@ NK.water = (function () {
   const frag = `
     uniform float time, night, storm;
     uniform vec3 sunDir, sunColor, zenith, horizon;
-    varying vec3 vWorld; varying vec3 vNormal; varying float vDepth; varying float vCrest;
+    uniform sampler2D reflMap; uniform float reflOn;
+    varying vec3 vWorld; varying vec3 vNormal; varying float vDepth; varying float vCrest; varying vec4 vRefl;
     #include <fog_pars_fragment>
     float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
     float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
@@ -112,16 +116,16 @@ NK.water = (function () {
       float rx = n(q + vec2(e,0.0) + time*0.35) - r1 + n(q*1.9 + vec2(e,0.0) - time*0.42) - r2;
       float rz = n(q + vec2(0.0,e) + time*0.35) - r1 + n(q*1.9 + vec2(0.0,e) - time*0.42) - r2;
       float dist = length(vWorld - cameraPosition);
-      float detail = (0.32 + storm * 0.3) * (1.0 - smoothstep(300.0, 2500.0, dist));
+      float detail = (0.16 + storm * 0.35) * (1.0 - smoothstep(300.0, 2500.0, dist));
       vec3 N = normalize(vNormal + vec3(rx, 0.0, rz) * detail);
       vec3 V = normalize(cameraPosition - vWorld);
 
       // Painted depth bands: lagoon, reef, shelf, open sea.
       float d = vDepth;
-      vec3 lagoon = vec3(0.30, 0.78, 0.72);
-      vec3 reef   = vec3(0.06, 0.52, 0.58);
-      vec3 shelf  = vec3(0.03, 0.30, 0.44);
-      vec3 deep   = vec3(0.015, 0.12, 0.26);
+      vec3 lagoon = vec3(0.38, 0.92, 0.84);
+      vec3 reef   = vec3(0.08, 0.70, 0.74);
+      vec3 shelf  = vec3(0.03, 0.46, 0.62);
+      vec3 deep   = vec3(0.02, 0.24, 0.46);
       vec3 col = mix(lagoon, reef, smoothstep(0.02, 0.14, d));
       col = mix(col, shelf, smoothstep(0.12, 0.38, d));
       col = mix(col, deep, smoothstep(0.35, 0.85, d));
@@ -131,15 +135,27 @@ NK.water = (function () {
       float diff = max(dot(N, normalize(sunDir + vec3(0.0,0.3,0.0))), 0.0);
       col *= (0.6 + 0.4 * diff) * mix(1.0, 0.15, night);
 
-      // Sky reflection by Fresnel.
-      float fres = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+      // Reflection: the mirrored world (islands, hulls, clouds, sun), wobbled
+      // by the ripples; the analytic sky stands in where the mirror is off.
+      float fres = 0.04 + 0.96 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
       vec3 R = reflect(-V, N);
       vec3 sky = mix(horizon, zenith, clamp(R.y * 1.6, 0.0, 1.0));
-      col = mix(col, sky * 0.9, clamp(fres * 0.6 + 0.03, 0.0, 0.65));
+      vec3 refl = sky;
+      if (reflOn > 0.5) {
+        // Offset in projective space scales with distance (rc.w), so far
+        // islands mirror as crisply as near ones.
+        vec2 wob = N.xz * (0.035 + 0.06 * storm);
+        vec4 rc = vRefl; rc.xy += wob * rc.w;
+        refl = texture2DProj(reflMap, rc).rgb;
+      }
+      float calm = 1.0 - storm * 0.5;
+      col = mix(col, refl * 0.92, clamp(fres * 0.85 + 0.07 * calm, 0.0, 0.82));
 
       // Sun glitter.
       vec3 Hh = normalize(sunDir + V);
-      float spec = pow(max(dot(N, Hh), 0.0), 380.0) * 5.0 + pow(max(dot(N, Hh), 0.0), 40.0) * 0.12;
+      // A long glitter path toward a low sun.
+      float nh = max(dot(N, Hh), 0.0);
+      float spec = pow(nh, 600.0) * 7.0 + pow(nh, 60.0) * 0.5 + pow(nh, 12.0) * 0.12 * (1.0 - sunDir.y);
       col += sunColor * spec * sunUp * (1.0 - storm * 0.7);
       vec3 Hm = normalize(-sunDir + V);
       col += vec3(0.6,0.7,0.9) * pow(max(dot(N, Hm), 0.0), 300.0) * 2.0 * night;
@@ -167,7 +183,8 @@ NK.water = (function () {
         waves: { value: WAVES.map(v => new THREE.Vector4(v[0], v[1], v[2], v[3])) },
         depthMap: { value: null }, field: { value: new THREE.Vector4(w.x0, w.z0, w.W * w.U, w.H * w.U) },
         sunDir: { value: new THREE.Vector3() }, sunColor: { value: new THREE.Color() },
-        zenith: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }
+        zenith: { value: new THREE.Color() }, horizon: { value: new THREE.Color() },
+        reflMap: { value: null }, reflMatrix: { value: new THREE.Matrix4() }, reflOn: { value: 0 }
       }])
     });
     mat.uniforms.depthMap.value = depthTex;
@@ -187,5 +204,49 @@ NK.water = (function () {
     mesh.position.set(Math.round(focus.x / snap) * snap, 0, Math.round(focus.z / snap) * snap);
   }
 
-  return { init, update, waveHeight };
+  // ---------- Planar mirror ----------
+  // Renders the world reflected in the sea plane into a texture, the same
+  // way a still harbor doubles every island in it.
+  let rt = null, mirrorCam = null, enabled = true;
+  const clip = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.6);
+  const v = new THREE.Vector3(), camPos = new THREE.Vector3(), look = new THREE.Vector3(), rot = new THREE.Matrix4(), up = new THREE.Vector3();
+  const N = new THREE.Vector3(0, 1, 0), bias = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
+  try { enabled = localStorage.getItem('nakhoda-reflect') !== 'off'; } catch (e) {}
+  function sizeRT(renderer) {
+    const scale = NK.isMobile ? 0.35 : 0.5, pr = renderer.getPixelRatio();
+    const w = Math.max(64, Math.floor(innerWidth * pr * scale)), h = Math.max(64, Math.floor(innerHeight * pr * scale));
+    if (!rt) rt = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    else if (rt.width !== w || rt.height !== h) rt.setSize(w, h);
+  }
+  function renderReflection(renderer, scene, camera, hide) {
+    const u = mat.uniforms;
+    if (!enabled) { u.reflOn.value = 0; return; }
+    sizeRT(renderer);
+    if (!mirrorCam) mirrorCam = camera.clone();
+    camPos.setFromMatrixPosition(camera.matrixWorld);
+    if (camPos.y < 0.2) { u.reflOn.value = 0; return; }
+    // Mirror the eye and its target through y = 0.
+    mirrorCam.position.set(camPos.x, -camPos.y, camPos.z);
+    rot.extractRotation(camera.matrixWorld);
+    look.set(0, 0, -1).applyMatrix4(rot).add(camPos); look.y = -look.y;
+    up.set(0, 1, 0).applyMatrix4(rot).reflect(N);
+    mirrorCam.up.copy(up); mirrorCam.lookAt(look);
+    mirrorCam.near = camera.near; mirrorCam.far = camera.far; mirrorCam.fov = camera.fov; mirrorCam.aspect = camera.aspect;
+    mirrorCam.updateProjectionMatrix(); mirrorCam.updateMatrixWorld();
+    u.reflMatrix.value.copy(bias).multiply(mirrorCam.projectionMatrix).multiply(mirrorCam.matrixWorldInverse);
+    mesh.visible = false; hide.forEach(o => { o.userData.wasVisible = o.visible; o.visible = false; });
+    const prevClip = renderer.clippingPlanes, prevAuto = renderer.shadowMap.autoUpdate, prevTarget = renderer.getRenderTarget();
+    renderer.clippingPlanes = [clip]; renderer.shadowMap.autoUpdate = false;
+    renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, mirrorCam);
+    renderer.setRenderTarget(prevTarget); renderer.clippingPlanes = prevClip; renderer.shadowMap.autoUpdate = prevAuto;
+    mesh.visible = true; hide.forEach(o => { o.visible = o.userData.wasVisible; });
+    u.reflMap.value = rt.texture; u.reflOn.value = 1;
+  }
+  function toggleReflections() {
+    enabled = !enabled;
+    try { localStorage.setItem('nakhoda-reflect', enabled ? 'on' : 'off'); } catch (e) {}
+    return enabled;
+  }
+
+  return { init, update, waveHeight, renderReflection, toggleReflections, get reflections() { return enabled; } };
 })();
