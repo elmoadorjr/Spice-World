@@ -49,8 +49,11 @@
     });
 
     // The ship herself, where the last save left her riding
-    if (typeof save.x === 'number' && typeof save.z === 'number' && typeof worldUnproject === 'function') {
-      const pos = worldUnproject(save.x, save.z);
+    // Saves from the open-world voyage carry lat/lng; older saves used the
+    // retired 40-island layout, whose x/z no longer map onto real coasts.
+    const pos = typeof save.lat === 'number' ? { lat: save.lat, lng: save.lng }
+      : (save.world === 2 && typeof save.x === 'number' && typeof worldUnproject === 'function') ? worldUnproject(save.x, save.z) : null;
+    if (pos) {
       const tierNames = ['Kelulus','Pencalang','Malangbang','Lancaran','Jong'];
       const ship = L.marker([pos.lat, pos.lng], { icon: shipIcon(), zIndexOffset: 900 });
       ship.bindPopup(
