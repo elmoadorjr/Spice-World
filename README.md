@@ -42,6 +42,8 @@ vendor/               Leaflet, Three.js, generated Tailwind — no CDNs, works o
 
 No build step — plain static files.
 
+3D models: [Kenney](https://kenney.nl) Nature Kit and Pirate Kit (CC0, see `assets/models/*/License.txt`).
+
 ## Play
 
 Play online: https://elmoadorjr.github.io/Spice-World/

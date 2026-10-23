@@ -22,6 +22,8 @@ NK.main = (function () {
 
     await step('Charting the coasts', () => NK.world.build());
     await step('Raising the sky', () => { NK.sky.init(scene); NK.water.init(scene); });
+    NK.$('loading-step').textContent = 'Carving the models';
+    await NK.assets.load();
     await step('Building the ports', () => NK.ports.init(scene));
     await step('Growing the islands', () => NK.land.init(scene));
     await step('Inking the chart', () => NK.chart.bake());

@@ -200,7 +200,7 @@ NK.land = (function () {
       if (NK.ports.nearTown(x, z, 20)) continue;
       const s = w.shore(x, z);
       const dens = NK.fbm(x * 0.004, z * 0.004, 3) * 0.5 + 0.5;
-      if (s < 150 && h < 16) { if (rnd() < 0.35 && palms.length < 90) palms.push([x, h, z, rnd()]); }
+      if (s < 150 && h < 16) { if (rnd() < 0.55 && palms.length < 140) palms.push([x, h, z, rnd()]); }
       else if (rnd() < dens && trees.length < 300) trees.push([x, h, z, rnd()]);
     }
     const g = new THREE.Group();
@@ -218,8 +218,39 @@ NK.land = (function () {
       im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false;
       g.add(im);
     };
-    place(palmGeo, palms, 0.85, 0.5, [0.14, 0.3, 0.8]);
-    place(treeGeo, trees, 1.3, 1.3, [0.22, 0.35, 0.72]);
+    if (NK.assets.ok) {
+      // Hand-modeled palms on the beaches; rainforest canopy, undergrowth
+      // and outcrops inland. Each variant is its own instanced mesh.
+      const sorted = (list, variants) => variants.map((v, k) => list.filter(e => Math.floor(e[3] * 977) % variants.length === k));
+      const put = (name, list, height, varH, sway) => {
+        const b = NK.assets.bake(name); if (!b || !list.length) return;
+        const im = new THREE.InstancedMesh(b.geometry, NK.assets.material(b.map, sway), list.length);
+        list.forEach(([x, h, z, r], n) => {
+          q.setFromAxisAngle(up, r * 41.3);
+          const sc0 = (height + varH * ((r * 7.31) % 1)) / b.size.y;
+          sc.set(sc0, sc0 * (0.9 + ((r * 3.7) % 1) * 0.2), sc0);
+          p3.set(x, h - 0.4, z); m4.compose(p3, q, sc); im.setMatrixAt(n, m4);
+          tmp.setHSL(0.25, 0.1, 0.92 + ((r * 5.3) % 1) * 0.16); im.setColorAt(n, tmp);
+        });
+        im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true;
+        im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false;
+        g.add(im);
+      };
+      const P = ['palm-detailed-straight', 'palm-detailed-bend', 'tree_palmTall', 'tree_palmDetailedTall', 'tree_palmBend'];
+      sorted(palms, P).forEach((l, k) => put(P[k], l, 13, 6, true));
+      const T = ['tree_detailed', 'tree_oak', 'tree_fat', 'tree_default', 'tree_plateau', 'tree_tall'];
+      sorted(trees, T).forEach((l, k) => put(T[k], l, 15, 10, true));
+      // Undergrowth beneath the canopy, rocks where the hills steepen.
+      const bushes = trees.filter((e, i) => i % 2 === 0).map(([x, h, z, r]) => [x + 6 * Math.cos(r * 40), h, z + 6 * Math.sin(r * 40), (r * 13.7) % 1]);
+      const B = ['plant_bushLarge', 'plant_bushDetailed', 'plant_bush'];
+      sorted(bushes, B).forEach((l, k) => put(B[k], l, 3.5, 2.5, true));
+      const rocks = trees.filter((e, i) => i % 9 === 0 && e[1] > 25).concat(palms.filter((e, i) => i % 6 === 0));
+      const RK = ['rock_largeA', 'rock_largeB', 'rock_tallA', 'rocks-sand-a', 'rocks-a'];
+      sorted(rocks, RK).forEach((l, k) => put(RK[k], l, 3, 3, false));
+    } else {
+      place(palmGeo, palms, 0.85, 0.5, [0.14, 0.3, 0.8]);
+      place(treeGeo, trees, 1.3, 1.3, [0.22, 0.35, 0.72]);
+    }
     c.group.add(g); c.veg = g;
   }
   function removeVeg(c) {

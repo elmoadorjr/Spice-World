@@ -89,8 +89,39 @@ NK.ships = (function () {
     return g;
   }
 
+  // Hand-modeled hulls (CC0 Kenney Pirate Kit) when they loaded: bow along
+  // +x like the rest of the game, sails kept as their own nodes so they can
+  // trim to the wind, belly out, luff, and furl.
+  const GLB = [['ship-small', 1.4], ['ship-small', 1.8], ['ship-medium', 1.75], ['ship-medium', 2.1], ['ship-large', 2.6]];
+  function buildModel(tier, opts) {
+    const [base, k] = GLB[Math.min(tier, GLB.length - 1)];
+    const name = opts.sail === 'dark' ? base.replace('ship-', 'ship-pirate-') : base;
+    const src = NK.assets.scene(name); if (!src) return null;
+    const group = new THREE.Group(), model = src.clone(true);
+    model.rotation.y = Math.PI / 2; model.scale.setScalar(k);
+    group.add(model);
+    model.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(model), size = new THREE.Vector3(); bb.getSize(size);
+    model.position.y = -bb.min.y - 0.55 * k;                  // sit the keel in the water
+    const L = size.x, B = size.z, D = 1.2 * k, deckY = 0.75 * k;
+    const sails = [], flags = [];
+    model.traverse(o => {
+      if (/^sail/.test(o.name)) sails.push({ node: o, rest: o.rotation.clone(), restScale: o.scale.clone() });
+      if (/^flag/.test(o.name)) flags.push({ node: o, rest: o.rotation.clone() });
+      if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }
+    });
+    const guns = { left: [], right: [] }, n = Math.max(1, Math.min(5, tier + 1));
+    for (let i = 0; i < n; i++) {
+      const u = n === 1 ? 0 : (i / (n - 1) - 0.5) * 0.45;
+      guns.left.push(new THREE.Vector3(u * L, deckY + 0.6, -B * 0.5 - 0.6));
+      guns.right.push(new THREE.Vector3(u * L, deckY + 0.6, B * 0.5 + 0.6));
+    }
+    return { group, sails, flags, guns, spec: HULLS[Math.min(tier, HULLS.length - 1)], L, B, D, deckY, glb: true };
+  }
+
   function build(tier, opts) {
     opts = opts || {};
+    if (NK.assets && NK.assets.ok) { const m = buildModel(tier, opts); if (m) return m; }
     const spec = HULLS[Math.min(tier, HULLS.length - 1)];
     const L = spec.L * (opts.scale || 1), B = spec.B * (opts.scale || 1), D = spec.D * (opts.scale || 1);
     const group = new THREE.Group();
@@ -171,6 +202,21 @@ NK.ships = (function () {
   // Sail animation: trim to the wind, swell with it, furl from the boom up.
   function animateSails(ship, trimAngle, deploy, fill, t, luff) {
     luff = luff || 0;
+    if (ship.glb) {
+      ship.sails.forEach((s, i) => {
+        // Model space: the sail swings about the mast (its local y).
+        // Square sails rest across the hull: eased right out they stay
+        // square (running); sheeted in they brace round toward the keel.
+        const brace = Math.sign(trimAngle || 1) * Math.max(0, Math.PI / 2 - Math.abs(trimAngle)) * 0.8;
+        const cur = s.node.rotation.y - s.rest.y;
+        const flap = luff * Math.sin(t * 11 + i) * 0.12;
+        s.node.rotation.y = s.rest.y + cur + (brace + flap - cur) * 0.08;
+        const d = Math.max(0.08, deploy);
+        s.node.scale.set(s.restScale.x * (1 + Math.abs(fill) * 0.25), s.restScale.y * d, s.restScale.z * (0.6 + 0.4 * d));
+      });
+      ship.flags.forEach((f, i) => { f.node.rotation.y = f.rest.y + Math.sin(t * 5 + i * 1.7) * 0.25; });
+      return;
+    }
     ship.sails.forEach((s, i) => {
       s.pivot.rotation.y += (trimAngle - s.pivot.rotation.y) * 0.08;
       const d = Math.max(0.06, deploy);
