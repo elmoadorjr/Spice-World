@@ -1,8 +1,9 @@
 // ============ SHARED WORLD DATA: PORTS OF THE NUSANTARA, 1500 AD ============
 // Single source of truth for the voyage sim's world AND the atlas's strategic
-// layer. Coordinates come from the atlas map where a pin exists; the rest are
-// the historical sites. The sim projects these onto its sea; the atlas draws
-// them straight onto the Leaflet map — same ports, same order, same indices.
+// layer. Coordinates are the historical sites; the sim snaps each one to the
+// nearest real coastline (js/data/coastlines.js) to lay out its town and jetty.
+// Same ports, same order, same indices on both pages: saved charters point at
+// a port by index.
 //
 // Loaded as a classic script by BOTH index.html and sim.html.
 
@@ -49,9 +50,9 @@ const PORT_DATA = [
   { name: "Panay",       lat:  10.72, lng: 122.55 }
 ];
 
-// Equirectangular projection between geography and sim sea-plane.
-// 1 degree = 100 sim units; north is -z so the sim minimap reads north-up.
-const WORLD_PROJ = { lat0: 2.2, lng0: 112.6, scale: 100 };
+// Equirectangular projection between geography and the sim's sea plane.
+// 1 degree = 600 sim units; north is -z so the chart reads north-up.
+const WORLD_PROJ = { lat0: 2.2, lng0: 112.6, scale: 600 };
 
 function worldProject(lat, lng) {
   return {
@@ -64,40 +65,4 @@ function worldUnproject(x, z) {
     lat: WORLD_PROJ.lat0 - z / WORLD_PROJ.scale,
     lng: WORLD_PROJ.lng0 + x / WORLD_PROJ.scale
   };
-}
-
-// Deterministic noise shared with the sim's price/economy hashing.
-function portHashNoise(a, b, c) {
-  const x = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453;
-  return x - Math.floor(x);
-}
-
-// Fixed island layout: project every port, then deterministically relax
-// overlapping neighbors apart (Ternate/Tidore, Maynila/Tondo, Makassar/Gowa
-// sit close in real geography but each needs its own island + sea room).
-function computeWorldLayout() {
-  const pts = PORT_DATA.map((p, i) => {
-    const { x, z } = worldProject(p.lat, p.lng);
-    const scale = 0.9 + portHashNoise(i, 9, 3) * 1.0;
-    return { name: p.name, x, z, scale, islandRadius: 16 * scale };
-  });
-  for (let iter = 0; iter < 300; iter++) {
-    let moved = false;
-    for (let i = 0; i < pts.length; i++) {
-      for (let j = i + 1; j < pts.length; j++) {
-        const a = pts[i], b = pts[j];
-        const minSep = a.islandRadius + b.islandRadius + 70;
-        let dx = b.x - a.x, dz = b.z - a.z;
-        let d = Math.hypot(dx, dz);
-        if (d >= minSep) continue;
-        if (d < 0.001) { dx = 1; dz = 0; d = 1; } // exact overlap: pick a direction
-        const push = (minSep - d) / 2;
-        a.x -= (dx / d) * push; a.z -= (dz / d) * push;
-        b.x += (dx / d) * push; b.z += (dz / d) * push;
-        moved = true;
-      }
-    }
-    if (!moved) break;
-  }
-  return pts;
 }
