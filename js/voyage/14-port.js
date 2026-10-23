@@ -21,8 +21,8 @@ NK.port = (function () {
     '_': ['A pilot swears the reef off the point has moved since last monsoon.', 'Miss the turn of the monsoon and you sit a whole season waiting for the next one.', 'Cloth is the true money east of Java. Bring cloth and you can name your price in cloves.', 'Penjajap were seen off the headland at dusk: low, fast, black sails.', 'The rice ships from Java are late, and the spice islands are hungry.', 'A Bugis captain says the Sulu raiders now hunt anything bigger than a pencalang.']
   };
 
-  function open(p) {
-    port = p; tab = 'market';
+  function open(p, startTab) {
+    port = p; tab = startTab || 'market';
     offer = Gm().state.contract ? null : Gm().offerCharter(p);
     render();
   }
@@ -37,7 +37,9 @@ NK.port = (function () {
         <br>Grown here: <b>${tr.prod.join(', ')}</b> · Wanted here: <b>${tr.want.join(', ')}</b></div>
       </div>
       <div class="purse-ink"><b>${NK.fmt(s.gold)}</b> pisis<div>Hold ${Gm().holdUsed()} / ${Gm().holdMax()} · Hull ${Math.round(NK.player.hp)} / ${Gm().maxHp()}</div>
-        <button class="btn primary" style="margin-top:10px" id="pt-leave">Weigh anchor</button></div>
+        <div style="margin-top:10px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
+          ${NK.shore.active ? '' : NK.shore.canWalk(port) ? '<button class="btn go" id="pt-ashore">Walk ashore</button>' : ''}
+          <button class="btn primary" id="pt-leave">${NK.shore.active ? 'Back to the street' : 'Weigh anchor'}</button></div></div>
     </div>
     <div class="tabs">${[['market', 'Market'], ['yard', 'Shipwrights'], ['tavern', 'Tavern'], ['harbour', 'Syahbandar']].map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   }
@@ -124,6 +126,7 @@ NK.port = (function () {
     NK.ui.showModal(`<div class="sheet">${head()}<div class="sheet-body" id="pt-body">${body}</div></div>`, 'port');
     NK.$('pt-body').scrollTop = scroll;
     NK.$('pt-leave').onclick = leave;
+    const ash = NK.$('pt-ashore'); if (ash) ash.onclick = () => { NK.ui.closeModal(); NK.shore.enter(port); };
     document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); NK.$('pt-body').scrollTop = 0; });
     document.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => buy(+b.dataset.buy, +b.dataset.q));
     document.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => sell(+b.dataset.sell, +b.dataset.q));
@@ -201,6 +204,7 @@ NK.port = (function () {
   }
   function leave() {
     NK.ui.closeModal();
+    if (NK.shore.active) return;           // back to walking the street
     const P = NK.player;
     P.placeAt(port);
     P.sailTarget = 0.5;

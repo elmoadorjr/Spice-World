@@ -47,7 +47,7 @@ NK.game = (function () {
     return {
       gold: 250, day: 1, dayFrac: 0.36, rep: 0, cargo: {}, tier: 0, upg: { hull: 0, sails: 0, guns: 0 },
       contract: null, stats: { deliveries: 0, piratesSunk: 0, merchantsSunk: 0, earned: 0 },
-      seaLord: false, known: {}, factionRep: {}, lastRankSeen: RANKS[0].n, hp: null
+      seaLord: false, known: {}, factionRep: {}, lastRankSeen: RANKS[0].n, hp: null, quests: {}
     };
   }
 
@@ -167,7 +167,7 @@ NK.game = (function () {
     const out = {
       v: 4, world: 2, savedAt: Date.now(),
       gold: s.gold, day: s.day, dayFrac: s.dayFrac, rep: s.rep, cargo: s.cargo, tier: s.tier, upg: s.upg, stats: s.stats,
-      seaLord: s.seaLord, contract: s.contract, known: s.known, factionRep: s.factionRep, lastRankSeen: s.lastRankSeen,
+      seaLord: s.seaLord, contract: s.contract, known: s.known, factionRep: s.factionRep, lastRankSeen: s.lastRankSeen, quests: s.quests,
       mkt: NK.econ.market
     };
     if (p) { out.x = Math.round(p.x); out.z = Math.round(p.z); const ll = worldUnproject(p.x, p.z); out.lat = +ll.lat.toFixed(3); out.lng = +ll.lng.toFixed(3); out.heading = NK.player.heading; out.hp = Math.round(NK.player.hp); }
@@ -193,7 +193,7 @@ NK.game = (function () {
     s.tier = NK.clamp(d.tier ?? 0, 0, TIERS.length - 1);
     s.upg = Object.assign({ hull: 0, sails: 0, guns: 0 }, d.upg);
     s.stats = Object.assign(s.stats, d.stats); s.seaLord = !!d.seaLord;
-    s.known = d.known || {}; s.factionRep = d.factionRep || {}; s.lastRankSeen = d.lastRankSeen || rankName();
+    s.known = d.known || {}; s.factionRep = d.factionRep || {}; s.quests = d.quests || {}; s.lastRankSeen = d.lastRankSeen || rankName();
     s.contract = d.contract && PORT_DATA[d.contract.destIdx] ? d.contract : null;
     NK.econ.market = d.mkt;
     // Positions from the old 40-island sim don't map onto the real coasts.

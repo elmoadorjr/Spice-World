@@ -8,6 +8,9 @@
 NK.ports = (function () {
   const MOSQUE = ['Melaka', 'Pasai', 'Aceh', 'Demak', 'Tuban', 'Gresik', 'Surabaya', 'Brunei', 'Ternate', 'Tidore', 'Jolo', 'Maynila', 'Patani', 'Pahang', 'Kedah', 'Terengganu', 'Jambi', 'Hitu'];
   const MERU = ['Bali', 'Sunda Kelapa', 'Banten', 'Lombok'];
+  // Ports you can walk ashore in (js/voyage/16-shore.js). Their towns are
+  // laid out around a street from the jetty to a square below the landmark.
+  const WALKABLE = ['Melaka'];
   let list = [], lampMat, lamps, scene;
 
   function colored(geo, hex) {
@@ -123,6 +126,9 @@ NK.ports = (function () {
       const face = Math.atan2(-p.nx, -p.nz);          // seaward
       const size = p.entrepot ? 38 : p.maluku ? 22 : 18;
       const reach = p.entrepot ? 150 : 95;
+      const walk = WALKABLE.includes(p.name);
+      const colliders = [];
+      const squareV = 95;                              // the market square, up the street
       let placed = 0;
       for (let t = 0; t < size * 6 && placed < size; t++) {
         const u = (rnd() * 2 - 1) * reach, v = 6 + rnd() * rnd() * (p.entrepot ? 120 : 70);
@@ -132,7 +138,10 @@ NK.ports = (function () {
         const slope = Math.abs(w.height(x + 6, z) - h) + Math.abs(w.height(x, z + 6) - h);
         if (slope > 4) continue;
         if (Math.abs(u) < 14 && v < 40) continue;      // keep the landing clear
-        houseT.push([x, h - 1.4, z, face + (rnd() - 0.5) * 0.5, 0.85 + rnd() * 0.35]); placed++;
+        if (walk && (Math.abs(u) < 20 || Math.hypot(u, v - squareV) < 46 || v > squareV + 40)) continue;
+        const hs = 0.85 + rnd() * 0.35;
+        houseT.push([x, h - 1.4, z, face + (rnd() - 0.5) * 0.5, hs]); placed++;
+        colliders.push([x, z, 4.6 * hs]);
       }
       // Houses on stilts out over the shallows, the sea people's way.
       let water = p.entrepot || ['Jolo', 'Banjarmasin', 'Brunei', 'Buton', 'Zamboanga', 'Cotabato'].includes(p.name) ? 14 : 5;
@@ -158,7 +167,8 @@ NK.ports = (function () {
       let kind = MOSQUE.includes(p.name) ? 'mosque' : MERU.includes(p.name) ? 'meru' : 'hall';
       // The landmark wants the flattest dry ground behind the waterfront.
       let lx = p.x + p.nx * 46, lz = p.z + p.nz * 46, best = Infinity;
-      for (let k = 0; k < 40; k++) {
+      if (walk) { lx = p.x + p.nx * (squareV + 30); lz = p.z + p.nz * (squareV + 30); best = -1; }
+      for (let k = 0; k < 40 && best >= 0; k++) {
         const u = (rnd() * 2 - 1) * reach * 0.7, v = 25 + rnd() * (p.entrepot ? 110 : 70);
         const x = p.x + tx * u + p.nx * v, z = p.z + tz * u + p.nz * v, h = w.height(x, z);
         if (h < 1) continue;
@@ -173,7 +183,13 @@ NK.ports = (function () {
       lm.castShadow = lm.receiveShadow = true;
       scene.add(lm);
       for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; lampT.push([lx + Math.cos(a) * 18, lh + 3, lz + Math.sin(a) * 18]); }
-      return Object.assign(p, { kind, landmark: { x: lx, z: lz, h: lh }, dock: { x: end[0], z: end[2] }, radius: reach + 40, core: p.entrepot ? 120 : 70 });
+      colliders.push([lx, lz, 15 * (p.entrepot ? 1.25 : 0.95)]);
+      const walkInfo = walk ? {
+        tx, tz, face, jetty: jetty.map(j => [j[0], j[2]]),
+        square: { x: p.x + p.nx * squareV, z: p.z + p.nz * squareV },
+        reach: squareV + 60
+      } : null;
+      return Object.assign(p, { kind, landmark: { x: lx, z: lz, h: lh }, dock: { x: end[0], z: end[2] }, radius: reach + 40, core: p.entrepot ? 120 : 70, colliders, walk: walkInfo });
     });
 
     const inst = (geo, arr, cast, material, k, dy) => {
