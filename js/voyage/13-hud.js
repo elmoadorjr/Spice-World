@@ -115,15 +115,19 @@ NK.ui = (function () {
       items.push({ d, x: a.pos.x, y: a.ship.D * 6 + 16, z: a.pos.z, html: `<b>${name}</b>${hp}`, cls: 'ship' + (hostile ? ' hostile' : '') });
     });
     items.sort((a, b) => a.d - b.d);
+    const placed = [];
     for (let i = 0; i < Math.max(items.length, labelPool.length); i++) {
       let el = labelPool[i];
       if (!el) { el = NK.el('div', 'label3d'); root.appendChild(el); labelPool.push(el); }
       const it = items[i];
       const p = it && i < 8 ? project(it.x, it.y, it.z) : null;
+      // Nearest label wins; anything it would cover stays hidden.
+      if (p && placed.some(q => Math.abs(q[0] - p[0]) < 150 && Math.abs(q[1] - p[1]) < 40)) { el.style.display = 'none'; continue; }
       if (!p) { el.style.display = 'none'; continue; }
+      placed.push(p);
       el.style.display = 'block'; el.className = 'label3d ' + it.cls;
       if (el._html !== it.html) { el.innerHTML = it.html; el._html = it.html; }
-      el.style.left = p[0] + 'px'; el.style.top = p[1] + 'px';
+      el.style.left = p[0] + 'px'; el.style.top = Math.max(118, p[1]) + 'px';
       el.style.opacity = NK.clamp(1.3 - it.d / (it.cls ? 700 : 1800), 0, 1);
     }
   }

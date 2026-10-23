@@ -134,15 +134,24 @@ NK.ports = (function () {
       lampT.push([end[0], 5, end[2]]);
       // Landmark.
       let kind = MOSQUE.includes(p.name) ? 'mosque' : MERU.includes(p.name) ? 'meru' : 'hall';
-      const lx = p.x + p.nx * (p.entrepot ? 70 : 46), lz = p.z + p.nz * (p.entrepot ? 70 : 46);
-      const lh = Math.max(0.8, w.height(lx, lz));
+      // The landmark wants the flattest dry ground behind the waterfront.
+      let lx = p.x + p.nx * 46, lz = p.z + p.nz * 46, best = Infinity;
+      for (let k = 0; k < 40; k++) {
+        const u = (rnd() * 2 - 1) * reach * 0.7, v = 25 + rnd() * (p.entrepot ? 110 : 70);
+        const x = p.x + tx * u + p.nx * v, z = p.z + tz * u + p.nz * v, h = w.height(x, z);
+        if (h < 1) continue;
+        const rough = [[12, 0], [-12, 0], [0, 12], [0, -12]].reduce((a, [dx, dz]) => a + Math.abs(w.height(x + dx, z + dz) - h), 0);
+        const score = rough * 3 + h * 0.2 + Math.abs(u) * 0.05;
+        if (score < best) { best = score; lx = x; lz = z; }
+      }
+      const lh = Math.max(0.8, Math.min(...[[0, 0], [10, 0], [-10, 0], [0, 10], [0, -10]].map(([dx, dz]) => w.height(lx + dx, lz + dz))));
       const geo = kind === 'mosque' ? makeMosque() : kind === 'meru' ? makeMeru() : makeHall();
       const lm = new THREE.Mesh(geo, mat);
       lm.position.set(lx, lh - 0.8, lz); lm.rotation.y = face; lm.scale.setScalar(p.entrepot ? 1.25 : 0.95);
       lm.castShadow = lm.receiveShadow = true;
       scene.add(lm);
       for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; lampT.push([lx + Math.cos(a) * 18, lh + 3, lz + Math.sin(a) * 18]); }
-      return Object.assign(p, { kind, landmark: { x: lx, z: lz, h: lh }, dock: { x: end[0], z: end[2] }, radius: reach + 40 });
+      return Object.assign(p, { kind, landmark: { x: lx, z: lz, h: lh }, dock: { x: end[0], z: end[2] }, radius: reach + 40, core: p.entrepot ? 120 : 70 });
     });
 
     const inst = (geo, arr, cast) => {
@@ -167,7 +176,7 @@ NK.ports = (function () {
   }
 
   function nearTown(x, z, pad) {
-    for (let i = 0; i < list.length; i++) { const p = list[i]; if (Math.hypot(x - p.x, z - p.z) < p.radius + (pad || 0)) return p; }
+    for (let i = 0; i < list.length; i++) { const p = list[i]; if (Math.hypot(x - p.x, z - p.z) < (pad === undefined ? p.radius : p.core + pad)) return p; }
     return null;
   }
   function nearest(x, z) {

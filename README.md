@@ -5,9 +5,22 @@
 ## What's inside
 
 - **Spice World Map** (`index.html`) — an interactive Leaflet chart of the Nusantara with layers for kingdoms and spheres of influence, trade routes and goods flows, monsoon winds, volcanoes, settlements, and pilgrimage sites — plus worldbuilding tabs: character sheets, locations, connections, conflicts, mythos, ledger, almanac, vessels, goods, and economy. The chart also shows your live voyage: your ship's position, every port you've charted, and your active charter.
-- **Nakhoda Mode** (`sim.html`) — a 3D sailing sim (Three.js): captain a jong through the Eastern Seas, trading between ports, riding the monsoon, and dodging pirates. Its world *is* the atlas map: every island sits where the real port sits, so Melaka truly guards the strait and the Maluku spice islands truly are the far east.
+- **Nakhoda: The Spice Sea** (`sim.html`): an open-world sailing game (Three.js). One seamless sea built from the real coastlines of the Nusantara: Sumatra, Java, Borneo, the Philippines and the Maluku spice islands as actual landmasses with beaches, jungle and volcanoes, and 40 port towns on their historical shores. Sail on a real points-of-sail model, ride the monsoon calendar (the winds reverse with the seasons), trade in living markets, take charters, fight pirates broadside to broadside, plot courses on the pilot's chart, and climb from a borrowed kelulus to a jong and Sea Lord.
 
-The map and the sim share one save (`nakhoda-save-v4`): money, cargo, ship, reputation, faction standing, position, and charted-port intel persist across both, and across reloads.
+The map and the voyage share one save (`nakhoda-save-v4`): money, cargo, ship, reputation, faction standing, markets, position, and charted-port intel persist across both, and across reloads.
+
+### Sailing
+
+| Key | Action |
+|---|---|
+| A / D | Steer |
+| W / S | Raise / furl sail (furled, half, full) |
+| Q / E | Port / starboard broadside |
+| F | Drop anchor at a port |
+| M | The pilot's chart: click a port to plot a course |
+| R | Give the pilot the helm (he tacks upwind for you) |
+| T | Fair winds: time passes three times as fast |
+| Drag / scroll | Look around / zoom |
 
 ## Project layout
 
@@ -17,6 +30,10 @@ sim.html              the Nakhoda voyage sim
 css/atlas.css         atlas styles
 js/data/ports.js      the 40 ports: names, coordinates, projection (shared by both pages)
 js/data/factions.js   the polities each port answers to, and their reputation
+js/data/coastlines.js the landmass polygons (atlas map + the sim's 3D islands)
+js/voyage/*.js        the voyage game, in load order (world field, sky, sea, land, towns,
+                      ships, economy, game state, helm, fleet, sound, chart, HUD, port, main)
+css/voyage.css        the voyage game's interface
 js/atlas/*.js         atlas code, in load order (10-voyage-layer.js draws live sim state)
 vendor/               Leaflet, Three.js, generated Tailwind — no CDNs, works offline
 ```

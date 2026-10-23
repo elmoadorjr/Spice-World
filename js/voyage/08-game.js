@@ -146,6 +146,10 @@ NK.game = (function () {
     ports.forEach(d => { if (d === port) return; (E.TRADE[d.name] || { want: [] }).want.forEach(n => { const gi = E.G[n]; if (E.role(port, gi) === 'prod') opts.push({ d, gi }); }); });
     if (!opts.length) ports.forEach(d => { if (d !== port && Math.hypot(d.x - port.x, d.z - port.z) < 9000) (E.TRADE[d.name] || { want: [] }).want.forEach(n => { if (E.available(port, E.G[n])) opts.push({ d, gi: E.G[n] }); }); });
     if (!opts.length) return null;
+    // Young captains get the short hauls; the long runs go to big hulls.
+    const reach = 5500 + s.tier * 6000;
+    const nearOpts = opts.filter(o => Math.hypot(o.d.x - port.x, o.d.z - port.z) < reach);
+    if (nearOpts.length) opts.splice(0, opts.length, ...nearOpts);
     const pick = opts[Math.floor(NK.hash3(port.idx, s.day, s.stats.deliveries) * opts.length)];
     const path = NK.world.route(port.ax, port.az, pick.d.ax, pick.d.az);
     let dist = 0; if (path) for (let i = 1; i < path.length; i++) dist += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
@@ -153,7 +157,7 @@ NK.game = (function () {
     const qty = Math.min(holdMax(), 4 + Math.floor(NK.hash3(port.idx, s.day, 9) * 5) + s.tier * 3);
     const value = E.price(pick.d, pick.gi, 'sell') * qty;
     const days = Math.max(2, Math.ceil(dist / (maxSpeed() * 0.7 * DAY_SECONDS) * 1.5) + 1);
-    return { good: E.GOODS[pick.gi].n, qty, destIdx: pick.d.idx, reward: Math.round(value * 0.55 + dist * 0.09), expiresDay: s.day + days, dist: Math.round(dist) };
+    return { good: E.GOODS[pick.gi].n, qty, destIdx: pick.d.idx, reward: Math.round(value * 0.6 + dist * 0.016 * (1 + s.tier * 0.35)), expiresDay: s.day + days, dist: Math.round(dist) };
   }
 
   // ---------- Save ----------

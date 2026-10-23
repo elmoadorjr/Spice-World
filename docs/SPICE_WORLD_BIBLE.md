@@ -4,6 +4,8 @@
 
 Source: the `elmoadorjr/Spice-World` repository (live at https://elmoadorjr.github.io/Spice-World/). Every number, name and rule in Parts 1 and 2 is taken from the code as it exists today; Part 3 is the full lore text and lore data from the atlas, converted to Markdown.
 
+> **Note:** Parts 1 and 2 describe the earlier 40-island version of Nakhoda Mode. The voyage has since been rebuilt as an open world on the real coastlines (see `js/voyage/` and the README). The lore in Part 3 is unchanged.
+
 ---
 
 ## 0. How to use this document

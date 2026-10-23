@@ -20,7 +20,7 @@ NK.world = (function () {
   function build() {
     // 1. Rasterize the landmass polygons.
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-    const g = cv.getContext('2d');
+    const g = cv.getContext('2d', { willReadFrequently: true });
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
     g.fillStyle = '#fff';
     const toPx = (lng, lat) => [(lng - B.lngMin) / RES, (B.latMax - lat) / RES];
@@ -31,6 +31,15 @@ NK.world = (function () {
         poly.forEach(ring => ring.forEach(([lng, lat], i) => { const [px, py] = toPx(lng, lat); i ? g.lineTo(px, py) : g.moveTo(px, py); }));
         g.fill('evenodd');
       });
+    });
+    // Islands too small for the source survey (Banda's group, the Ternate
+    // and Tidore cones) still need a shore: any port standing in open water
+    // gets an islet of its own.
+    PORT_DATA.forEach(p => {
+      const [px, py] = toPx(p.lng, p.lat);
+      const d = g.getImageData(Math.round(px) - 3, Math.round(py) - 3, 7, 7).data;
+      let land = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 127) land++;
+      if (land < 8) { g.beginPath(); g.ellipse(px, py, 5.5, 4, 0.6, 0, Math.PI * 2); g.fill(); }
     });
     const img = g.getImageData(0, 0, W, H).data;
     mask = new Uint8Array(W * H);
@@ -87,11 +96,11 @@ NK.world = (function () {
   // Volcano landmarks (lat, lng, height, radius). The atlas's five plus the
   // peaks a 1500 pilot steered by.
   const VOLCANOES = [
-    ['Krakatau', -6.10, 105.42, 170, 150], ['Merapi', -7.54, 110.44, 300, 420], ['Semeru', -8.11, 112.92, 330, 420],
-    ['Tambora', -8.25, 117.99, 300, 450], ['Gamalama', 0.80, 127.33, 230, 170], ['Gunung Api', -4.52, 129.87, 150, 110],
+    ['Krakatau', -6.10, 105.42, 150, 90], ['Merapi', -7.54, 110.44, 300, 420], ['Semeru', -8.11, 112.92, 330, 420],
+    ['Tambora', -8.25, 117.99, 300, 450], ['Gamalama', 0.80, 127.33, 190, 95], ['Gunung Api', -4.52, 129.87, 120, 70],
     ['Agung', -8.34, 115.51, 290, 360], ['Rinjani', -8.41, 116.46, 310, 380], ['Kinabalu', 6.08, 116.56, 380, 520],
     ['Kerinci', -1.70, 101.26, 340, 460], ['Mayon', 13.26, 123.69, 290, 330], ['Lokon', 1.36, 124.79, 220, 260],
-    ['Tidore Peak', 0.66, 127.40, 220, 160], ['Sangeang Api', -8.20, 119.06, 180, 140]
+    ['Tidore Peak', 0.66, 127.40, 180, 90], ['Sangeang Api', -8.20, 119.06, 150, 90]
   ].map(([name, lat, lng, h, r]) => { const p = worldProject(lat, lng); return { name, x: p.x, z: p.z, h, r }; });
 
   function height(x, z) {
@@ -113,7 +122,9 @@ NK.world = (function () {
       let cone = v.h * Math.pow(Math.max(0, 1 - d / (v.r * 1.6)), 1.7);
       const crater = v.h * 0.14 * Math.max(0, 1 - d / (v.r * 0.12));
       cone = cone - crater + NK.fbm(x * 0.02, z * 0.02, 2) * 4;
-      if (cone > h) h = cone;
+      // The cone rises from the land; it never builds new ground out to sea.
+      cone *= NK.smooth(-30, 50, s);
+      if (cone > 0.5 && cone > h) h = cone;
     }
     return h;
   }

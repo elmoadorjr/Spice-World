@@ -7,7 +7,7 @@
 NK.chart = (function () {
   let img = null, IW = 0, IH = 0, S = 2;     // chart pixels per field pixel = 1/S
   const view = { cx: 0, cz: 0, scale: 1 };   // scale: canvas px per world unit
-  let cv, ctx, hover = null, drag = null;
+  let cv, ctx, hover = null, drag = null, baseScale = 1;
 
   function bake() {
     const w = NK.world, sdf = w.sdf;
@@ -103,7 +103,7 @@ NK.chart = (function () {
     cv = NK.$('chart-cv'); ctx = cv.getContext('2d');
     const r = cv.getBoundingClientRect(); cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
     const w = NK.world;
-    view.scale = Math.min(cv.width / (w.W * w.U), cv.height / (w.H * w.U)) * 1.0;
+    view.scale = baseScale = Math.min(cv.width / (w.W * w.U), cv.height / (w.H * w.U));
     view.cx = w.x0 + w.W * w.U / 2; view.cz = w.z0 + w.H * w.U / 2;
     cv.addEventListener('wheel', e => { e.preventDefault(); const f = e.deltaY > 0 ? 0.85 : 1.18; zoomAt(e, f); }, { passive: false });
     cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; cv.setPointerCapture(e.pointerId); });
@@ -126,7 +126,7 @@ NK.chart = (function () {
   function draw() {
     if (!cv) return;
     const w = NK.world, g = ctx, st = NK.game.state, P = NK.player, dpr = devicePixelRatio;
-    g.fillStyle = '#cdd6c7'; g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = '#a9bdb8'; g.fillRect(0, 0, cv.width, cv.height);
     g.imageSmoothingEnabled = true;
     g.drawImage(img, sx(w.x0), sz(w.z0), w.W * w.U * view.scale, w.H * w.U * view.scale);
     // Graticule.
@@ -155,6 +155,8 @@ NK.chart = (function () {
       g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
       g.strokeStyle = '#efe4c8'; g.lineWidth = 1.5 * dpr; g.stroke();
       if (hover === p) { g.strokeStyle = '#7a2b1c'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(x, y, r + 5 * dpr, 0, 7); g.stroke(); }
+      // Minor ports name themselves once you zoom in, or once they matter to you.
+      if (!p.entrepot && !known && !dest && hover !== p && view.scale < baseScale * 1.7) return;
       g.font = `${p.entrepot ? 600 : 500} ${(p.entrepot ? 17 : 14) * dpr}px "Cormorant Garamond", Georgia, serif`;
       g.fillStyle = '#2a2017'; g.textAlign = 'left'; g.fillText(p.name, x + r + 4 * dpr, y + 4 * dpr);
     });

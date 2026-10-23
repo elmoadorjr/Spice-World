@@ -128,7 +128,9 @@ NK.fleet = (function () {
     const P = NK.player.pos;
     const near = k => ships.filter(a => a.kind === k && !a.sinking).length;
     if (near('merchant') < (NK.isMobile ? 4 : 7)) spawn('merchant');
-    const pir = NK.clamp(Math.floor(danger(P.x, P.z) * 1.6 + NK.game.state.tier * 0.35), 0, 4);
+    // A grace of two days before the raiders notice a new kelulus.
+    const st = NK.game.state;
+    const pir = st.day < 3 && st.tier === 0 ? 0 : NK.clamp(Math.floor(danger(P.x, P.z) * 1.6 + st.tier * 0.35), 0, 4);
     if (near('pirate') < pir && Math.random() < 0.5) spawn('pirate');
     // A royal patrol works the waters off each capital.
     const port = NK.ports.nearest(P.x, P.z);
@@ -361,7 +363,7 @@ NK.fleet = (function () {
 
   return {
     init(sc) { scene = sc; initParticles(); },
-    update, wake, fire: playerFire, threatNear, hostile, clear, danger,
+    update, wake, fire: playerFire, threatNear, hostile, clear, danger, spawn,
     get ships() { return ships; }, get loot() { return loot; }
   };
 })();

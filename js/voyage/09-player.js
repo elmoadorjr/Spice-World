@@ -242,10 +242,17 @@ NK.player = (function () {
     const cx = P.pos.x + Math.cos(cam.yaw) * Math.cos(cam.pitch) * d;
     const cz = P.pos.z - Math.sin(cam.yaw) * Math.cos(cam.pitch) * d;
     let cy = P.pos.y + 4 + Math.sin(cam.pitch) * d;
-    const ground = NK.world.height(cx, cz);
-    const waterY = NK.water.waveHeight(cx, cz, NK.T);
-    cy = Math.max(cy, Math.max(ground, waterY) + 3);
-    camera.position.set(cx, cy, cz);
+    // Pull in if a hillside stands between the eye and the ship.
+    let k = 1;
+    for (let i = 1; i <= 8; i++) {
+      const t = i / 8, x = P.pos.x + (cx - P.pos.x) * t, z = P.pos.z + (cz - P.pos.z) * t, y = P.pos.y + 4 + (cy - P.pos.y - 4) * t;
+      if (NK.world.height(x, z) + 3 > y) { k = Math.max(0.15, (i - 1) / 8); break; }
+    }
+    cam.k = NK.lerp(cam.k || 1, k, k < (cam.k || 1) ? 1 : Math.min(1, dt * 2));
+    const ex = P.pos.x + (cx - P.pos.x) * cam.k, ez = P.pos.z + (cz - P.pos.z) * cam.k;
+    let ey = P.pos.y + 4 + (cy - P.pos.y - 4) * cam.k;
+    ey = Math.max(ey, Math.max(NK.world.height(ex, ez), NK.water.waveHeight(ex, ez, NK.T)) + 3);
+    camera.position.set(ex, ey, ez);
     camera.lookAt(P.pos.x, P.pos.y + 6 * scale + d * 0.05, P.pos.z);
   }
 

@@ -127,7 +127,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .touch .hud-tl { transform-origin: top left; transform: scale(0.85); top: 10px; left: 10px; }
 .touch .hud-tr { top: 10px; right: 10px; }
 .touch #h-mini { width: 112px; height: 112px; }
-.touch .hud-compass { top: 10px; width: 40vw; }
+.touch .hud-compass { display: none; }
+.touch #h-prompt { bottom: 110px; }
+.touch #h-prompt button { font-size: 17px; padding: 10px 18px; white-space: nowrap; }
+.touch .hud-bl { top: 128px; }
 .tc { position: absolute; pointer-events: auto; width: 64px; height: 64px; border-radius: 50%; background: rgba(18,15,11,0.6); border: 1px solid var(--glass-line); color: #efe3c5; font-size: 22px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
 .tc.on { background: rgba(196,149,63,0.5); }
 .tc small { font-size: 10px; letter-spacing: 0.08em; }
